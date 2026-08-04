@@ -7,7 +7,6 @@ $env:MULTISCALE_ARTIFACT_DIR = Join-Path $Root "data\artifacts"
 New-Item -ItemType Directory -Force -Path $env:MULTISCALE_ARTIFACT_DIR | Out-Null
 
 Write-Host "==> MultiscaleNano setup" -ForegroundColor Cyan
-Write-Host "    Project root: $Root"
 
 Write-Host "==> Installing Python packages (includes OpenMM)..." -ForegroundColor Cyan
 pip install -e "$Root\packages\core" -q
@@ -22,37 +21,36 @@ if (-not (Test-Path "node_modules")) { npm install }
 Set-Location $Root
 
 Write-Host ""
-Write-Host "==> Starting API on http://localhost:8000" -ForegroundColor Green
+Write-Host "==> Starting API on http://127.0.0.1:8000" -ForegroundColor Green
 Start-Process powershell -ArgumentList @(
     "-NoExit", "-Command",
-    "cd '$Root'; `$env:MULTISCALE_ARTIFACT_DIR='$($env:MULTISCALE_ARTIFACT_DIR)'; uvicorn app.main:app --reload --port 8000 --app-dir apps/api"
+    "cd '$Root'; `$env:MULTISCALE_ARTIFACT_DIR='$($env:MULTISCALE_ARTIFACT_DIR)'; uvicorn app.main:app --reload --host 127.0.0.1 --port 8000 --app-dir apps/api"
 )
 
-Start-Sleep -Seconds 3
-
-Write-Host ""
-Write-Host "==> Waiting for API readiness..." -ForegroundColor Cyan
+Write-Host "==> Waiting for API..." -ForegroundColor Cyan
 $ready = $false
 for ($i = 0; $i -lt 30; $i++) {
     try {
-        $h = Invoke-RestMethod -Uri "http://localhost:8000/health/ready" -TimeoutSec 3
+        $h = Invoke-RestMethod -Uri "http://127.0.0.1:8000/health/ready" -TimeoutSec 3 -ErrorAction Stop
         if ($h.simulations_ready) { $ready = $true; break }
-    } catch { }
+    } catch {
+        try {
+            Invoke-RestMethod -Uri "http://127.0.0.1:8000/health" -TimeoutSec 3 -ErrorAction Stop | Out-Null
+        } catch { }
+    }
     Start-Sleep -Seconds 2
-}
-if (-not $ready) {
-    Write-Host "WARNING: OpenMM not ready yet — wizard will show a banner until simulations are available." -ForegroundColor Yellow
 }
 
 Write-Host "==> Starting Web UI on http://localhost:3000" -ForegroundColor Green
 Start-Process powershell -ArgumentList @(
     "-NoExit", "-Command",
-    "cd '$Root\apps\web'; npm run dev"
+    "cd '$Root\apps\web'; `$env:API_INTERNAL_URL='http://127.0.0.1:8000'; npm run dev"
 )
 
 Write-Host ""
-Write-Host "Ready! Open http://localhost:3000/simulate" -ForegroundColor Green
-Write-Host "  1. Pick an example or enter your drug structure (auto-validates)" -ForegroundColor Yellow
-Write-Host "  2. Complete the wizard and run OpenMM simulation" -ForegroundColor Yellow
-Write-Host ""
-Write-Host "Simulations run in-process inside the API (no Redis/worker needed)." -ForegroundColor DarkGray
+if ($ready) {
+    Write-Host "Ready! Open http://localhost:3000/simulate" -ForegroundColor Green
+} else {
+    Write-Host "Web started — waiting for OpenMM. Open http://localhost:3000/simulate" -ForegroundColor Yellow
+}
+Write-Host "Keep both terminal windows open while simulating." -ForegroundColor DarkGray

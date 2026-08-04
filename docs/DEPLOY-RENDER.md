@@ -1,81 +1,38 @@
-# Deploy to Render (5 minutes)
+# Deploy MultiscaleNano to Render (one public URL)
 
-You only need to do **one thing I cannot do for you**: sign in to Render and connect your GitHub account. Everything else is below.
+Users open your Render URL — no install, no scripts.
 
-## Before you start
+## Steps
 
-- A [GitHub](https://github.com) account
-- A [Render](https://render.com) account (free to create)
-- This project pushed to a GitHub repository
+1. Push this repo to GitHub (`AVK-creator-bot/MultiScaleNano`)
 
-## Step 1 — Put the code on GitHub
+2. Go to [dashboard.render.com](https://dashboard.render.com) → sign in with GitHub
 
-If you haven't already, from the project folder:
+3. **New +** → **Blueprint** → select **MultiScaleNano** → **Apply**
 
-```powershell
-cd C:\Users\aryak\Projects\MultiscaleNano
-git add .
-git commit -m "Initial MultiscaleNano web app"
-```
+4. Render creates **one** service (`multiscale`) from `render.yaml` + root `Dockerfile`
 
-Create a new repo on GitHub (e.g. `MultiscaleNano`), then:
+5. Wait for the first build (~10–15 minutes). Open the service URL when it shows **Live**
 
-```powershell
-git remote add origin https://github.com/YOUR_USERNAME/MultiscaleNano.git
-git branch -M main
-git push -u origin main
-```
+6. Share that URL — e.g. `https://multiscale-xxxx.onrender.com/simulate`
 
-## Step 2 — Connect Render (one-time)
+## If a previous two-service deploy failed
 
-1. Go to **[dashboard.render.com](https://dashboard.render.com)**
-2. Sign up / sign in → choose **Sign in with GitHub**
-3. Authorize Render to access your repositories
+Delete the old `multiscale-api` and `multiscale-web` services in Render, then re-apply the Blueprint. The new setup uses **one container** (API + web together).
 
-That's the "connect Render" step — it takes about 30 seconds.
+## Cost
 
-## Step 3 — Deploy from blueprint
-
-1. In Render, click **New +** → **Blueprint**
-2. Connect the `MultiscaleNano` repository you just pushed
-3. Render reads `render.yaml` and shows two services:
-   - `multiscale-api` — simulation engine (Standard plan, ~$25/mo — needed for CPU/RAM)
-   - `multiscale-web` — the website users visit (Starter plan)
-4. Click **Apply**
-
-First deploy takes ~10–15 minutes (Docker build includes OpenMM).
-
-## Step 4 — Share the URL
-
-When deploy finishes, open the **`multiscale-web`** service URL, e.g.:
-
-`https://multiscale-web-xxxx.onrender.com`
-
-That is your public app. Users open it and click **Start a simulation** — no install, no scripts.
-
-## Costs (approximate)
-
-| Service | Plan | Why |
-|---------|------|-----|
-| multiscale-web | Starter (~$7/mo) | Serves the website |
-| multiscale-api | Standard (~$25/mo) | Runs 30–45 min MD simulations |
-
-Simulations need always-on CPU; free tier will time out.
+- **Standard** plan (~$25/mo) — required for CPU-heavy MD simulations
+- **5 GB disk** — stores simulation artifacts and run history
 
 ## Troubleshooting
 
-| Issue | Fix |
-|-------|-----|
-| Web shows "Service unavailable" | Wait for API health check to pass (OpenMM install on first boot) |
-| API deploy fails | Check logs — needs Standard plan + disk |
-| Simulations fail | API service must stay running; don't use free tier for API |
+| Symptom | Fix |
+|---------|-----|
+| Build failed exit 1 | Pull latest `main` — PyPI dependency bug is fixed |
+| Page loads but can't simulate | Check logs for OpenMM; redeploy after latest push |
+| Simulation stuck on "Waiting" | Fixed in latest — run status starts immediately |
 
-## Alternative — no Render bill
+## Health check
 
-Run on your own machine or a VPS with Docker only:
-
-```bash
-docker compose up --build
-```
-
-Share via tunnel (ngrok, Cloudflare Tunnel) if you want others to access it temporarily.
+Render pings `GET /health` on the web port. The web service proxies to the internal API.

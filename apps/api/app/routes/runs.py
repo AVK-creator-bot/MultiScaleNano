@@ -96,6 +96,7 @@ async def start_run(body: StartRunRequest):
     run = SimulationRun(
         design_id=body.design_id,
         simulation_mode=body.simulation_mode,
+        status=RunStatus.RUNNING,
         modules=[ModuleRunStatus(module=node.module) for node in plan.modules],
     )
     run_store.set(run.id, run)

@@ -1,40 +1,27 @@
-# MultiscaleNano — run the full web app with one command:
+# One command → one URL: http://localhost:3000
 #   docker compose up --build
-# Then open http://localhost:3000
 
 services:
-  api:
+  app:
     build:
       context: .
-      dockerfile: Dockerfile.api
-    environment:
-      MULTISCALE_ARTIFACT_DIR: /data/artifacts
-      MULTISCALE_API_URL: http://127.0.0.1:8000
-      MULTISCALE_CORS_ORIGINS: "*"
-    volumes:
-      - artifact_data:/data/artifacts
-      - store_data:/data/store
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready')"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-
-  web:
-    build:
-      context: .
-      dockerfile: Dockerfile.web
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     environment:
-      API_INTERNAL_URL: http://api:8000
-    depends_on:
-      api:
-        condition: service_healthy
+      MULTISCALE_ARTIFACT_DIR: /data/artifacts
+      MULTISCALE_API_URL: http://127.0.0.1:8000
+      API_INTERNAL_URL: http://127.0.0.1:8000
+      PORT: "3000"
+    volumes:
+      - app_data:/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
 
 volumes:
-  artifact_data:
-  store_data:
+  app_data:

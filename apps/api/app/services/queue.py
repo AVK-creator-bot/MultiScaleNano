@@ -93,4 +93,5 @@ async def enqueue_simulation_job(
 
     if use_in_process:
         loop = asyncio.get_event_loop()
+        logger.info("Starting in-process simulation for run %s", run_id)
         loop.run_in_executor(_executor, _run_job_sync, run_id, design_json, modules, mode)

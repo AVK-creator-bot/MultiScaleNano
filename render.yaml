@@ -1,38 +1,24 @@
-# Deploy MultiscaleNano to the web (Render.com)
-
-# 1. Push this repo to GitHub
-# 2. Connect the repo at https://dashboard.render.com
-# 3. Render will create both services from this blueprint
+# MultiscaleNano on Render — ONE service, ONE public URL
+# Dashboard → New → Blueprint → connect repo → Apply
 
 services:
   - type: web
-    name: multiscale-api
+    name: multiscale
     runtime: docker
-    dockerfilePath: ./Dockerfile.api
+    dockerfilePath: ./Dockerfile
     dockerContext: .
     plan: standard
-    healthCheckPath: /health/ready
+    healthCheckPath: /health
     envVars:
       - key: MULTISCALE_ARTIFACT_DIR
         value: /data/artifacts
       - key: MULTISCALE_API_URL
         value: http://127.0.0.1:8000
+      - key: API_INTERNAL_URL
+        value: http://127.0.0.1:8000
       - key: MULTISCALE_CORS_ORIGINS
         value: "*"
     disk:
-      name: multiscale-artifacts
+      name: multiscale-data
       mountPath: /data
       sizeGB: 5
-
-  - type: web
-    name: multiscale-web
-    runtime: docker
-    dockerfilePath: ./Dockerfile.web
-    dockerContext: .
-    plan: starter
-    envVars:
-      - key: API_INTERNAL_URL
-        fromService:
-          type: web
-          name: multiscale-api
-          envVarKey: RENDER_EXTERNAL_URL

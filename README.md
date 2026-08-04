@@ -1,70 +1,51 @@
 # MultiscaleNano
 
-**Design and simulate lipid nanoparticles in your browser.**
+**Design and simulate lipid nanoparticles in your browser — one link, no setup for users.**
 
-Project nanotech — no command line, no scripts, no local setup for end users. Just open the app and run simulations.
+## For users (just open the link)
 
-## Use it on the web
+Deploy to [Render](https://render.com) once. Everyone uses your URL:
 
-### Option A — Hosted (recommended for users)
-
-Deploy once to Render, Railway, or any Docker host. Users visit your URL and click **Start a simulation**.
-
-**Render (one-click):**
 1. Push this repo to GitHub
-2. Go to [render.com](https://render.com) → New → Blueprint → connect repo
-3. Render reads `render.yaml` and deploys API + web
-4. Share the `multiscale-web` URL with your team
+2. [Render Dashboard](https://dashboard.render.com) → **New** → **Blueprint** → select **MultiScaleNano** → **Apply**
+3. Wait ~10–15 min for the first build
+4. Open the **multiscale** service URL → click **Start a simulation**
 
-### Option B — Self-host with Docker (one command)
+No install, no terminal, no scripts for end users.
 
-Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/) only:
+## For developers (local)
+
+**Option A — Docker (one URL, matches production):**
 
 ```bash
 docker compose up --build
 ```
 
-Open **http://localhost:3000** — that's it. No Python, Node, or scripts to run manually.
+Open **http://localhost:3000/simulate**
 
-### Option C — Local development (for contributors)
+**Option B — Windows dev (two auto-started windows):**
 
 ```powershell
 .\scripts\start-local.ps1
 ```
 
-Hot-reload for API and web during development.
-
-## What users see
-
-1. Open the website
-2. Click **Start a simulation**
-3. Pick an example (mRNA or Paclitaxel) — structure auto-validates
-4. Walk through the wizard
-5. Click **Start simulation** and view results
-
-No terminal. No installation.
+Open **http://localhost:3000/simulate**
 
 ## Architecture
 
+Single container in production:
+
 ```
-Browser  →  Web (Next.js, port 3000)
-              ↓ proxy /api/*
-           API (FastAPI, port 8000)
-              ↓
-           OpenMM MD simulations
+Browser → Web (port 3000) → proxies /api/* → API (127.0.0.1:8000) → OpenMM MD
 ```
 
-The web app proxies all API calls — users only ever talk to one URL.
+Simulations run in-process inside the API. No Redis or separate worker required.
 
-## Requirements for hosting
+## Render notes
 
-| Resource | Minimum |
-|----------|---------|
-| CPU | 2 cores (MD is CPU-bound) |
-| RAM | 4 GB |
-| Disk | 5 GB (simulation artifacts) |
-
-Serverless platforms with short timeouts are not suitable — simulations run 30–45 minutes.
+- Uses **one** Standard web service (~$25/mo) — MD simulations need CPU
+- Persistent disk mounted at `/data` for artifacts and run history
+- Health check: `GET /health`
 
 ## License
 

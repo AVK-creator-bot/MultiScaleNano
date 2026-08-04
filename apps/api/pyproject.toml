@@ -12,8 +12,6 @@ dependencies = [
     "pydantic-settings>=2.2",
     "numpy>=1.26",
     "openmm>=8.0",
-    "multiscale-core",
-    "multiscale-worker",
 ]
 
 [project.optional-dependencies]
@@ -28,4 +26,3 @@ packages = ["app"]
 
 [tool.uv.sources]
 multiscale-core = { path = "../../packages/core", editable = true }
-multiscale-worker = { path = "../../workers/simulation", editable = true }
