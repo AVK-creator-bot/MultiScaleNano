@@ -74,11 +74,25 @@ export const EXAMPLE_PAYLOADS = [
     },
     presetKey: "small_molecule",
   },
+  {
+    id: "sirna",
+    name: "siRNA example",
+    description: "Onpattro-style MC3 LNP — RNAi delivery",
+    drug: {
+      name: "siRNA payload",
+      payload_type: "sirna" as const,
+      structure_source_type: "sequence" as const,
+      structure_value: "UUGUUGUUGUUGUUGUUGUU",
+      loading_pct: 3,
+      encapsulation_mode: "core",
+    },
+    presetKey: "sirna_mcq",
+  },
 ] as const;
 
 export function friendlyError(message: string): string {
   if (message.includes("OpenMM")) {
-    return "Simulations are temporarily unavailable. Please try again in a few minutes.";
+    return "OpenMM is not loaded on the server. Restart with .\\scripts\\start-local.ps1 or docker compose up --build.";
   }
   if (
     message.includes("404") ||

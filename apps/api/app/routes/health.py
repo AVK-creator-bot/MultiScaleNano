@@ -1,16 +1,10 @@
 from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 
 router = APIRouter()
 
 
-@router.get("/health")
-async def health_check():
-    return {"status": "ok", "service": "multiscale-api"}
-
-
-@router.get("/health/ready")
-async def readiness_check():
-    """Check whether the API can run simulations."""
+def _readiness_payload() -> dict:
     openmm_ok = False
     openmm_version = None
     try:
@@ -36,3 +30,17 @@ async def readiness_check():
             else "OpenMM not installed — run: pip install openmm"
         ),
     }
+
+
+@router.get("/health")
+async def health_check():
+    return {"status": "ok", "service": "multiscale-api"}
+
+
+@router.get("/health/ready")
+async def readiness_check():
+    """Check whether the API can run simulations."""
+    payload = _readiness_payload()
+    if not payload["simulations_ready"]:
+        return JSONResponse(status_code=503, content=payload)
+    return payload

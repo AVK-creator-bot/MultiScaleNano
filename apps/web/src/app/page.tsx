@@ -12,13 +12,21 @@ export default function HomePage() {
             </div>
             <span className="text-lg font-semibold tracking-tight">MultiscaleNano</span>
           </div>
-          <Link
-            href="/simulate"
-            className="inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm text-white hover:bg-[var(--primary-hover)] transition-colors"
-          >
-            Open Simulator
-            <ArrowRight className="h-4 w-4" />
-          </Link>
+          <nav className="flex items-center gap-4 text-sm">
+            <Link href="/runs" className="text-[var(--muted)] hover:text-white">
+              History
+            </Link>
+            <Link href="/methodology" className="text-[var(--muted)] hover:text-white">
+              Methods
+            </Link>
+            <Link
+              href="/simulate"
+              className="inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-4 py-2 text-white hover:bg-[var(--primary-hover)] transition-colors"
+            >
+              Open Simulator
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </nav>
         </div>
       </header>
 

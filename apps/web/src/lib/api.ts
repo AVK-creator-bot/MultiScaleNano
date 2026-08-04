@@ -142,9 +142,33 @@ async function apiFetch(path: string, init?: RequestInit): Promise<Response> {
 }
 
 export async function checkHealth(): Promise<HealthStatus> {
-  const res = await apiFetch("/health/ready");
-  if (!res.ok) throw new Error(await parseApiError(res));
-  return res.json();
+  const readyRes = await apiFetch("/health/ready");
+  if (readyRes.ok) {
+    return readyRes.json();
+  }
+
+  // Degraded but API reachable — parse body when OpenMM is unavailable (503)
+  if (readyRes.status === 503) {
+    try {
+      return await readyRes.json();
+    } catch {
+      /* fall through */
+    }
+  }
+
+  const liveRes = await apiFetch("/health");
+  if (!liveRes.ok) {
+    throw new Error(await parseApiError(readyRes));
+  }
+
+  return {
+    status: "degraded",
+    service: "multiscale-api",
+    openmm_available: false,
+    openmm_version: null,
+    simulations_ready: false,
+    message: "API is online but simulation readiness could not be confirmed.",
+  };
 }
 
 export async function fetchTemplates(): Promise<
@@ -241,14 +265,47 @@ export async function getRun(runId: string): Promise<SimulationRun> {
   return res.json();
 }
 
+export interface UncertaintyRecord {
+  n_replicates?: number;
+  metric?: string;
+  mean?: number;
+  std?: number;
+  ci_95_low?: number;
+  ci_95_high?: number;
+}
+
+export interface ModuleArtifact {
+  module?: string;
+  data: Record<string, unknown>;
+  uncertainty?: Record<string, UncertaintyRecord>;
+  provenance?: Record<string, unknown>;
+}
+
 export interface RunResults {
   run_id: string;
   status: string;
-  modules: Record<string, { data: Record<string, unknown>; module: string }>;
+  modules: Record<string, ModuleArtifact>;
 }
 
 export async function getRunResults(runId: string): Promise<RunResults> {
   const res = await apiFetch(`/api/runs/${runId}/results`);
+  if (!res.ok) throw new Error(await parseApiError(res));
+  return res.json();
+}
+
+export async function listRuns(): Promise<SimulationRun[]> {
+  const res = await apiFetch("/api/runs");
+  if (!res.ok) throw new Error(await parseApiError(res));
+  return res.json();
+}
+
+export function exportRunUrl(runId: string, format: "json" | "csv" = "json"): string {
+  const base = API_BASE || "";
+  return `${base}/api/runs/${runId}/export?format=${format}`;
+}
+
+export async function fetchDesign(designId: string): Promise<NanocarrierDesign> {
+  const res = await apiFetch(`/api/designs/${designId}`);
   if (!res.ok) throw new Error(await parseApiError(res));
   return res.json();
 }

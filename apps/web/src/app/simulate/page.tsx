@@ -1,18 +1,21 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
   Atom,
   CheckCircle2,
+  Download,
   Loader2,
   Play,
   RefreshCw,
   Sparkles,
 } from "lucide-react";
 import { HelpTip, StepHeader } from "@/components/HelpTip";
+import { ResultsPanel } from "@/components/ResultsPanel";
 import {
   createDesign,
   checkHealth,
@@ -27,6 +30,7 @@ import {
   planWorkflow,
   resolveDrug,
   startRun,
+  exportRunUrl,
   LOADING_LIMITS,
   STRUCTURE_HINTS,
   type DrugPayload,
@@ -46,8 +50,26 @@ import {
 } from "@/lib/wizard-copy";
 
 export default function SimulatePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen flex-col items-center justify-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-[var(--primary)]" />
+          <p className="text-sm text-[var(--muted)]">Loading simulator…</p>
+        </div>
+      }
+    >
+      <SimulateWizard />
+    </Suspense>
+  );
+}
+
+function SimulateWizard() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState(0);
   const [design, setDesign] = useState<NanocarrierDesign | null>(null);
+  const [lipidPresetKey, setLipidPresetKey] = useState("mrna_sm102");
   const [modules, setModules] = useState<ModuleSpec[]>([]);
   const [enabledModules, setEnabledModules] = useState<string[]>([]);
   const [plan, setPlan] = useState<{ estimated_display: string } | null>(null);
@@ -96,6 +118,7 @@ export default function SimulatePage() {
         lipids,
       };
       setDesign(newDesign);
+      setLipidPresetKey(example.presetKey);
       await validateStructure(newDesign.drug);
     },
     [design, lipidPresets, validateStructure]
@@ -106,6 +129,18 @@ export default function SimulatePage() {
       try {
         const healthStatus = await checkHealth();
         setHealth(healthStatus);
+
+        const runParam = searchParams.get("run");
+        if (runParam) {
+          const existing = await getRun(runParam);
+          setRun(existing);
+          setStep(4);
+          if (existing.status === "completed" || existing.status === "failed") {
+            const res = await getRunResults(runParam);
+            setResults(res);
+          }
+        }
+
         const [tmpl, mods, presets] = await Promise.all([
           fetchTemplates(),
           fetchModules(),
@@ -115,8 +150,9 @@ export default function SimulatePage() {
         setLipidPresets(presets);
         setModules(mods);
         setEnabledModules(mods.filter((m) => m.enabled_by_default).map((m) => m.name));
-        // Auto-validate default template so users can start quickly
-        await validateStructure(tmpl[0].design.drug);
+        if (!runParam) {
+          await validateStructure(tmpl[0].design.drug);
+        }
       } catch (e) {
         setInitError(friendlyError(e instanceof Error ? e.message : "Connection failed"));
       } finally {
@@ -124,7 +160,7 @@ export default function SimulatePage() {
       }
     }
     init();
-  }, [validateStructure]);
+  }, [validateStructure, searchParams]);
 
   useEffect(() => {
     if (enabledModules.length > 0) {
@@ -140,30 +176,36 @@ export default function SimulatePage() {
       const newRun = await startRun(saved.id!, enabledModules, simulationMode);
       setRun(newRun);
       setStep(4);
+      router.replace(`/simulate?run=${newRun.id}`);
     } catch (e) {
       setRunError(friendlyError(e instanceof Error ? e.message : "Failed to start simulation"));
     }
-  }, [design, enabledModules, simulationMode, structureValidated]);
+  }, [design, enabledModules, simulationMode, structureValidated, router]);
 
   const handleReset = () => {
     setStep(0);
     setRun(null);
     setResults(null);
     setRunError(null);
+    router.replace("/simulate");
   };
 
   useEffect(() => {
     if (!run || run.status === "completed" || run.status === "failed") return;
     const interval = setInterval(async () => {
-      const updated = await getRun(run.id);
-      setRun(updated);
-      if (updated.status === "completed") {
-        const res = await getRunResults(run.id);
-        setResults(res);
-      }
-      if (updated.status === "failed") {
-        const failedMod = updated.modules.find((m) => m.status === "failed" && m.error);
-        if (failedMod?.error) setRunError(friendlyError(failedMod.error));
+      try {
+        const updated = await getRun(run.id);
+        setRun(updated);
+        if (updated.status === "completed") {
+          const res = await getRunResults(run.id);
+          setResults(res);
+        }
+        if (updated.status === "failed") {
+          const failedMod = updated.modules.find((m) => m.status === "failed" && m.error);
+          if (failedMod?.error) setRunError(friendlyError(failedMod.error));
+        }
+      } catch {
+        setRunError("Lost connection while polling — retrying…");
       }
     }, 1500);
     return () => clearInterval(interval);
@@ -197,17 +239,29 @@ export default function SimulatePage() {
           <Atom className="h-7 w-7 text-[var(--primary)]" />
         </div>
         <div>
-          <h1 className="text-xl font-semibold">Service temporarily unavailable</h1>
-          <p className="mt-2 max-w-sm text-sm text-[var(--muted)]">
-            The simulator is starting up or experiencing issues. Please wait a moment and try again.
+          <h1 className="text-xl font-semibold">Simulator not running</h1>
+          <p className="mt-2 max-w-md text-sm text-[var(--muted)]">
+            {initError ||
+              "The API and web app need to be started on this machine before you can simulate."}
           </p>
+        </div>
+        <div className="max-w-md rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 text-left text-xs text-[var(--muted)]">
+          <p className="font-medium text-white">Start locally (PowerShell)</p>
+          <pre className="mt-2 overflow-x-auto rounded bg-[var(--surface-elevated)] p-3 font-mono text-[11px] text-white">
+            cd C:\Users\aryak\Projects\MultiscaleNano{"\n"}.\scripts\start-local.ps1
+          </pre>
+          <p className="mt-3 font-medium text-white">Or with Docker</p>
+          <pre className="mt-2 overflow-x-auto rounded bg-[var(--surface-elevated)] p-3 font-mono text-[11px] text-white">
+            docker compose up --build
+          </pre>
+          <p className="mt-3">Then open http://localhost:3000/simulate</p>
         </div>
         <button
           onClick={() => window.location.reload()}
           className="inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-5 py-2.5 text-sm text-white"
         >
           <RefreshCw className="h-4 w-4" />
-          Refresh page
+          Retry connection
         </button>
       </div>
     );
@@ -226,12 +280,16 @@ export default function SimulatePage() {
             <Atom className="h-5 w-5 text-[var(--primary)]" />
             <span className="font-semibold">Simulation wizard</span>
           </div>
-          {health?.simulations_ready && (
+          {health?.simulations_ready ? (
             <span className="hidden items-center gap-1.5 text-xs text-[var(--success)] sm:flex">
               <CheckCircle2 className="h-3.5 w-3.5" />
               Ready to simulate
             </span>
-          )}
+          ) : health ? (
+            <span className="hidden text-xs text-amber-400 sm:block">
+              Simulations unavailable
+            </span>
+          ) : null}
         </div>
       </header>
 
@@ -263,6 +321,11 @@ export default function SimulatePage() {
       </div>
 
       <main className="mx-auto max-w-3xl px-6">
+        {health && !health.simulations_ready && (
+          <div className="mb-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+            {health.message}
+          </div>
+        )}
         <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 sm:p-8">
           <StepHeader title={currentStep.title} subtitle={currentStep.subtitle} />
 
@@ -313,6 +376,7 @@ export default function SimulatePage() {
                         : payload_type === "sirna"
                           ? "sirna_mcq"
                           : "small_molecule";
+                    setLipidPresetKey(presetKey);
                     const updated = {
                       ...design,
                       drug: {
@@ -447,11 +511,13 @@ export default function SimulatePage() {
               <Field label="Lipid recipe (literature-based)">
                 <select
                   className="input"
+                  value={lipidPresetKey}
                   onChange={(e) => {
-                    const preset = lipidPresets[e.target.value];
+                    const key = e.target.value;
+                    setLipidPresetKey(key);
+                    const preset = lipidPresets[key];
                     if (preset) setDesign({ ...design, lipids: preset });
                   }}
-                  defaultValue="mrna_sm102"
                 >
                   {Object.entries(LIPID_PRESET_LABELS).map(([key, label]) => (
                     <option key={key} value={key}>
@@ -541,6 +607,30 @@ export default function SimulatePage() {
                   }
                   className="w-full accent-[var(--primary)]"
                 />
+              </Field>
+              <Field
+                label={`Temperature: ${(design.environment.temperature_k - 273.15).toFixed(0)} °C`}
+              >
+                <input
+                  type="range"
+                  min={280}
+                  max={320}
+                  step={0.5}
+                  value={design.environment.temperature_k}
+                  onChange={(e) =>
+                    setDesign({
+                      ...design,
+                      environment: {
+                        ...design.environment,
+                        temperature_k: Number(e.target.value),
+                      },
+                    })
+                  }
+                  className="w-full accent-[var(--primary)]"
+                />
+                <p className="mt-1 text-xs text-[var(--muted)]">
+                  Used in all MD modules (Langevin thermostat). Default 37 °C.
+                </p>
               </Field>
               <Field label="Fluid the particle will encounter">
                 <select
@@ -663,7 +753,7 @@ export default function SimulatePage() {
                     />
                   </div>
                   <p className="mt-2 text-xs text-[var(--muted)]">
-                    Simulations run on your computer. Keep this tab open.
+                    Simulations run on the server — keep this tab open to track progress.
                   </p>
                 </div>
               ) : run.status === "completed" ? (
@@ -700,44 +790,39 @@ export default function SimulatePage() {
 
               {results && run.status === "completed" && (
                 <div>
-                  <h3 className="mb-3 font-semibold">Key results</h3>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {results.modules.encapsulation && (
-                      <ResultCard
-                        label="Drug encapsulation"
-                        value={`${((results.modules.encapsulation.data.encapsulation_efficiency_estimate as number) * 100).toFixed(1)}%`}
-                        hint="How much drug stays inside the particle"
-                      />
-                    )}
-                    {results.modules.formation && (
-                      <ResultCard
-                        label="Particle size"
-                        value={`${results.modules.formation.data.hydrodynamic_radius_nm} nm`}
-                        hint="Hydrodynamic radius from MD"
-                      />
-                    )}
-                    {results.modules.stability && (
-                      <ResultCard
-                        label="Stability"
-                        value={`${((results.modules.stability.data.stability_score as number) * 100).toFixed(0)}%`}
-                        hint="Structural stability under heat stress"
-                      />
-                    )}
-                    {results.modules.transport && (
-                      <ResultCard
-                        label="Tissue penetration (1 hr)"
-                        value={`${results.modules.transport.data.penetration_depth_um} µm`}
-                        hint="How far the particle travels in tissue"
-                      />
-                    )}
-                    {results.modules.release && (
-                      <ResultCard
-                        label="Release half-life"
-                        value={`${results.modules.release.data.half_life_hours} hrs`}
-                        hint="Time for half the drug to release"
-                      />
-                    )}
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <h3 className="font-semibold">Results</h3>
+                    <div className="flex flex-wrap gap-2">
+                      <a
+                        href={exportRunUrl(run.id, "json")}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs hover:bg-[var(--surface-elevated)]"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        JSON
+                      </a>
+                      <a
+                        href={exportRunUrl(run.id, "csv")}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs hover:bg-[var(--surface-elevated)]"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        CSV
+                      </a>
+                      <Link
+                        href={`/runs/${run.id}`}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs hover:bg-[var(--surface-elevated)]"
+                      >
+                        Full report
+                      </Link>
+                      <Link
+                        href="/methodology"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs hover:bg-[var(--surface-elevated)]"
+                      >
+                        Methods
+                      </Link>
+                    </div>
                   </div>
+                  <KeyResultsSummary modules={results.modules} />
+                  <ResultsPanel modules={results.modules} />
                 </div>
               )}
 
@@ -885,6 +970,57 @@ function ValidationStatus({
   );
 }
 
+function KeyResultsSummary({
+  modules,
+}: {
+  modules: Record<string, { data: Record<string, unknown> }>;
+}) {
+  const enc = modules.encapsulation?.data;
+  const form = modules.formation?.data;
+  const stab = modules.stability?.data;
+  const trans = modules.transport?.data;
+  const rel = modules.release?.data;
+
+  const cards = [
+    enc?.encapsulation_efficiency_estimate != null && {
+      label: "Encapsulation efficiency",
+      value: `${((enc.encapsulation_efficiency_estimate as number) * 100).toFixed(1)}%`,
+    },
+    form?.hydrodynamic_radius_nm != null && {
+      label: "Hydrodynamic radius",
+      value: `${form.hydrodynamic_radius_nm} nm`,
+    },
+    stab?.stability_score != null && {
+      label: "Stability score",
+      value: `${((stab.stability_score as number) * 100).toFixed(0)}%`,
+    },
+    trans?.penetration_depth_um != null && {
+      label: "Tissue penetration (1 hr)",
+      value: `${trans.penetration_depth_um} µm`,
+    },
+    rel?.half_life_hours != null && {
+      label: "Release half-life",
+      value: `${rel.half_life_hours} hrs`,
+    },
+  ].filter(Boolean) as { label: string; value: string }[];
+
+  if (!cards.length) return null;
+
+  return (
+    <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {cards.map((c) => (
+        <div
+          key={c.label}
+          className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4"
+        >
+          <p className="text-xs text-[var(--muted)]">{c.label}</p>
+          <p className="mt-1 text-xl font-semibold">{c.value}</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
     queued: "text-[var(--muted)]",
@@ -897,23 +1033,5 @@ function StatusBadge({ status }: { status: string }) {
       {status === "running" && <Loader2 className="mr-1 inline h-3 w-3 animate-spin" />}
       {STATUS_LABELS[status] || status}
     </span>
-  );
-}
-
-function ResultCard({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-}) {
-  return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4">
-      <p className="text-xs text-[var(--muted)]">{label}</p>
-      <p className="mt-1 text-xl font-semibold">{value}</p>
-      {hint && <p className="mt-1 text-xs text-[var(--muted)]">{hint}</p>}
-    </div>
   );
 }

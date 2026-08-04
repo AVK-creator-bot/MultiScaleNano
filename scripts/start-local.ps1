@@ -30,6 +30,20 @@ Start-Process powershell -ArgumentList @(
 
 Start-Sleep -Seconds 3
 
+Write-Host ""
+Write-Host "==> Waiting for API readiness..." -ForegroundColor Cyan
+$ready = $false
+for ($i = 0; $i -lt 30; $i++) {
+    try {
+        $h = Invoke-RestMethod -Uri "http://localhost:8000/health/ready" -TimeoutSec 3
+        if ($h.simulations_ready) { $ready = $true; break }
+    } catch { }
+    Start-Sleep -Seconds 2
+}
+if (-not $ready) {
+    Write-Host "WARNING: OpenMM not ready yet — wizard will show a banner until simulations are available." -ForegroundColor Yellow
+}
+
 Write-Host "==> Starting Web UI on http://localhost:3000" -ForegroundColor Green
 Start-Process powershell -ArgumentList @(
     "-NoExit", "-Command",
@@ -38,7 +52,7 @@ Start-Process powershell -ArgumentList @(
 
 Write-Host ""
 Write-Host "Ready! Open http://localhost:3000/simulate" -ForegroundColor Green
-Write-Host "  1. Click 'Validate structure' on step 1" -ForegroundColor Yellow
+Write-Host "  1. Pick an example or enter your drug structure (auto-validates)" -ForegroundColor Yellow
 Write-Host "  2. Complete the wizard and run OpenMM simulation" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "Simulations run in-process inside the API (no Redis/worker needed)." -ForegroundColor DarkGray

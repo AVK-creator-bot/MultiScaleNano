@@ -1,11 +1,14 @@
 """Simulation run endpoints."""
 
+import csv
+import io
 import json
 from datetime import datetime, timezone
 from enum import Enum
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from multiscale_core.paths import ARTIFACT_DIR
@@ -107,6 +110,29 @@ async def start_run(body: StartRunRequest):
     return run
 
 
+@router.get("")
+async def list_runs():
+    runs = run_store.values()
+    runs.sort(key=lambda r: r.created_at, reverse=True)
+    return runs
+
+
+def _load_run_results(run_id: UUID) -> tuple[SimulationRun, dict[str, dict]]:
+    run = run_store.get(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    run_dir = ARTIFACT_DIR / str(run_id)
+    results: dict[str, dict] = {}
+    if run_dir.exists():
+        for module_dir in run_dir.iterdir():
+            artifact_file = module_dir / "artifact.json"
+            if artifact_file.exists():
+                results[module_dir.name] = json.loads(artifact_file.read_text(encoding="utf-8"))
+
+    return run, results
+
+
 @router.get("/{run_id}")
 async def get_run(run_id: UUID):
     run = run_store.get(run_id)
@@ -115,29 +141,61 @@ async def get_run(run_id: UUID):
     return run
 
 
-@router.get("")
-async def list_runs():
-    return run_store.values()
-
-
 @router.get("/{run_id}/results")
 async def get_run_results(run_id: UUID):
     """Return aggregated module artifacts for a completed run."""
-    run = run_store.get(run_id)
-    if run is None:
-        raise HTTPException(status_code=404, detail="Run not found")
-
-    run_dir = ARTIFACT_DIR / str(run_id)
-    if not run_dir.exists():
-        return {"run_id": str(run_id), "status": run.status, "modules": {}}
-
-    results: dict[str, dict] = {}
-    for module_dir in run_dir.iterdir():
-        artifact_file = module_dir / "artifact.json"
-        if artifact_file.exists():
-            results[module_dir.name] = json.loads(artifact_file.read_text(encoding="utf-8"))
-
+    run, results = _load_run_results(run_id)
     return {"run_id": str(run_id), "status": run.status, "modules": results}
+
+
+@router.get("/{run_id}/export")
+async def export_run_results(run_id: UUID, format: str = Query("json")):
+    """Export run results as JSON or CSV for downstream analysis."""
+    run, results = _load_run_results(run_id)
+    payload = {
+        "run_id": str(run_id),
+        "design_id": str(run.design_id),
+        "status": run.status.value if hasattr(run.status, "value") else run.status,
+        "simulation_mode": (
+            run.simulation_mode.value
+            if hasattr(run.simulation_mode, "value")
+            else run.simulation_mode
+        ),
+        "created_at": run.created_at.isoformat(),
+        "modules": results,
+    }
+
+    if format.lower() == "csv":
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow(["module", "metric", "value", "unit"])
+        for module_name, artifact in results.items():
+            data = artifact.get("data", {})
+            uncertainty = artifact.get("uncertainty", {})
+            for key, value in data.items():
+                if key in ("methodology", "release_profile", "lipid_composition", "drug_structure"):
+                    continue
+                if isinstance(value, (dict, list)):
+                    continue
+                row = [module_name, key, value, ""]
+                unc = uncertainty.get(key)
+                if isinstance(unc, dict) and "ci_95_low" in unc and "ci_95_high" in unc:
+                    row[3] = f"CI [{unc['ci_95_low']:.4g}, {unc['ci_95_high']:.4g}]"
+                writer.writerow(row)
+        return Response(
+            content=buf.getvalue(),
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="run-{run_id}.csv"'},
+        )
+
+    if format.lower() != "json":
+        raise HTTPException(status_code=400, detail="format must be json or csv")
+
+    return Response(
+        content=json.dumps(payload, indent=2),
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="run-{run_id}.json"'},
+    )
 
 
 @router.patch("/{run_id}/modules/{module_name}")
