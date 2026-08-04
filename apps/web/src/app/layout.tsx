@@ -5,9 +5,15 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "MultiscaleNano — Nanotechnology Drug Delivery Simulator",
+  title: "MultiscaleNano — Free Nanotechnology Simulation Platform",
   description:
-    "Design lipid nanoparticles and run real molecular dynamics simulations in your browser.",
+    "Design lipid nanoparticles and run real OpenMM molecular dynamics in your browser. Free, open source, for nanotechnology and drug delivery research.",
+  openGraph: {
+    title: "MultiscaleNano",
+    description:
+      "Free browser-based nanotechnology simulation — OpenMM MD for lipid nanoparticle research.",
+    type: "website",
+  },
 };
 
 export default function RootLayout({

@@ -1,48 +1,33 @@
 import Link from "next/link";
-import { ArrowRight, Atom, CheckCircle2, FlaskConical, Layers, Play, Zap } from "lucide-react";
+import { ArrowRight, FlaskConical, Globe, Layers, Play, Zap } from "lucide-react";
+import { SiteFooter } from "@/components/SiteFooter";
+import { SiteHeader } from "@/components/SiteHeader";
 
 export default function HomePage() {
   return (
     <div className="min-h-screen">
-      <header className="border-b border-[var(--border)] px-6 py-4">
-        <div className="mx-auto flex max-w-6xl items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-[var(--primary)]">
-              <Atom className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-lg font-semibold tracking-tight">MultiscaleNano</span>
-          </div>
-          <nav className="flex items-center gap-4 text-sm">
-            <Link href="/runs" className="text-[var(--muted)] hover:text-white">
-              History
-            </Link>
-            <Link href="/methodology" className="text-[var(--muted)] hover:text-white">
-              Methods
-            </Link>
-            <Link
-              href="/simulate"
-              className="inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-4 py-2 text-white hover:bg-[var(--primary-hover)] transition-colors"
-            >
-              Open Simulator
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <SiteHeader />
+
+      <div className="border-b border-[var(--primary)]/30 bg-[var(--primary)]/10 px-6 py-3 text-center text-sm">
+        <span className="font-medium text-[var(--primary)]">Now live & free</span>
+        <span className="mx-2 text-[var(--muted)]">·</span>
+        Open to all nanotechnology researchers — no account required
+      </div>
 
       <main>
         <section className="mx-auto max-w-6xl px-6 py-20 text-center">
           <p className="mb-4 text-sm font-medium uppercase tracking-widest text-[var(--primary)]">
-            Lipid nanoparticle simulator
+            Nanotechnology simulation platform
           </p>
           <h1 className="mx-auto max-w-3xl text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
-            Design and simulate drug-loaded nanoparticles — no coding required
+            Design and simulate nanoparticle drug delivery — free, in your browser
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg text-[var(--muted)]">
-            A guided wizard walks you from drug structure to encapsulation, stability, and tissue
-            delivery predictions — powered by real molecular dynamics.
+            MultiscaleNano is an open research tool for the nanotechnology community. Run real
+            OpenMM molecular dynamics from drug structure through encapsulation, stability, and
+            release — no coding, no HPC account.
           </p>
-          <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
               href="/simulate"
               className="inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-8 py-3 font-medium text-white hover:bg-[var(--primary-hover)] transition-colors"
@@ -50,29 +35,43 @@ export default function HomePage() {
               <Play className="h-4 w-4" />
               Start a simulation
             </Link>
-            <p className="text-sm text-[var(--muted)]">Free to use · No install · Real molecular dynamics</p>
+            <Link
+              href="/about"
+              className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] px-6 py-3 text-sm hover:bg-[var(--surface-elevated)]"
+            >
+              Learn more
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
+          <p className="mt-4 text-sm text-[var(--muted)]">
+            Free · Open source · Export JSON/CSV ·{" "}
+            <Link href="/partners" className="text-[var(--primary)] hover:underline">
+              Partner with us
+            </Link>
+          </p>
         </section>
 
         <section className="border-y border-[var(--border)] bg-[var(--surface)] py-16">
           <div className="mx-auto max-w-4xl px-6">
             <h2 className="text-center text-2xl font-bold">How it works</h2>
-            <p className="mt-2 text-center text-[var(--muted)]">Three steps — we handle the science</p>
+            <p className="mt-2 text-center text-[var(--muted)]">
+              Three steps — built for researchers, students, and labs
+            </p>
             <div className="mt-12 grid gap-8 md:grid-cols-3">
               <HowStep
                 step={1}
-                title="Describe your drug"
-                description="Pick an example (mRNA or Paclitaxel) or paste a PubChem ID, SMILES, or sequence. We verify it before simulating."
+                title="Describe your payload"
+                description="mRNA, siRNA, or small molecule — paste a sequence, PubChem ID, or SMILES. Structure is verified before simulation."
               />
               <HowStep
                 step={2}
-                title="Design your LNP"
-                description="Choose a literature-based lipid recipe, set loading and particle size, and pick your target tissue."
+                title="Design your nanocarrier"
+                description="Literature lipid presets (SM-102, ALC-0315, MC3), loading, size, temperature, and target tissue."
               />
               <HowStep
                 step={3}
-                title="Run & review"
-                description="Real OpenMM simulations compute encapsulation, stability, transport, and release — with uncertainty estimates."
+                title="Run & export"
+                description="OpenMM MD across the full pipeline. Download results with methodology and uncertainty bands."
               />
             </div>
           </div>
@@ -81,27 +80,42 @@ export default function HomePage() {
         <section className="py-16">
           <div className="mx-auto grid max-w-6xl gap-8 px-6 md:grid-cols-3">
             <FeatureCard
-              icon={<FlaskConical className="h-6 w-6" />}
-              title="Guided wizard"
-              description="No input files or command lines. Every field has examples and validation built in."
+              icon={<Globe className="h-6 w-6" />}
+              title="Free & accessible"
+              description="Public web platform. No paywall. Open source on GitHub for anyone in nanotech research."
             />
             <FeatureCard
               icon={<Layers className="h-6 w-6" />}
               title="Full pipeline"
-              description="Encapsulation through release in one workflow, with results linked step to step."
+              description="Encapsulation through release in one workflow — not isolated calculators."
             />
             <FeatureCard
               icon={<Zap className="h-6 w-6" />}
               title="Real physics"
-              description="OpenMM molecular dynamics — not instant guesses. Every metric shows how it was calculated."
+              description="OpenMM molecular dynamics with documented methods — not black-box guesses."
             />
+          </div>
+        </section>
+
+        <section className="border-t border-[var(--border)] bg-[var(--surface)] py-14">
+          <div className="mx-auto max-w-2xl px-6 text-center">
+            <FlaskConical className="mx-auto h-8 w-8 text-[var(--primary)]" />
+            <h2 className="mt-4 text-xl font-bold">For universities & labs</h2>
+            <p className="mt-2 text-sm text-[var(--muted)]">
+              Adopt MultiscaleNano in courses, compare formulations with your lab data, or co-develop
+              validation studies. Always free for research and education.
+            </p>
+            <Link
+              href="/partners"
+              className="mt-6 inline-block text-sm font-medium text-[var(--primary)] hover:underline"
+            >
+              Partnership information →
+            </Link>
           </div>
         </section>
       </main>
 
-      <footer className="border-t border-[var(--border)] py-8 text-center text-sm text-[var(--muted)]">
-        MultiscaleNano — Nanomedicine simulation for researchers
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

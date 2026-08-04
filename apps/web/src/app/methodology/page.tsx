@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { SiteFooter } from "@/components/SiteFooter";
+import { SiteHeader } from "@/components/SiteHeader";
 
 const MODULES = [
   {
@@ -68,17 +69,10 @@ const MODULES = [
 
 export default function MethodologyPage() {
   return (
-    <div className="min-h-screen pb-16">
-      <header className="border-b border-[var(--border)] px-6 py-4">
-        <div className="mx-auto flex max-w-3xl items-center gap-3">
-          <Link href="/" className="text-[var(--muted)] hover:text-white" aria-label="Home">
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          <h1 className="text-lg font-semibold">Simulation methodology</h1>
-        </div>
-      </header>
-
+    <div className="min-h-screen">
+      <SiteHeader />
       <main className="mx-auto max-w-3xl space-y-8 px-6 py-8">
+        <h1 className="text-3xl font-bold">Simulation methodology</h1>
         <section className="text-sm text-[var(--muted)]">
           <p>
             MultiscaleNano runs real molecular dynamics (OpenMM) for coarse-grained modules and
@@ -132,6 +126,7 @@ export default function MethodologyPage() {
           </p>
         </section>
       </main>
+      <SiteFooter />
     </div>
   );
 }

@@ -1,52 +1,57 @@
 # MultiscaleNano
 
-**Design and simulate lipid nanoparticles in your browser — one link, no setup for users.**
+**Free, open nanotechnology simulation — run in your browser.**
 
-## For users (just open the link)
+[![Live demo](https://img.shields.io/badge/demo-live-blue)](https://multiscale.onrender.com)
+[![GitHub](https://img.shields.io/badge/code-GitHub-black)](https://github.com/AVK-creator-bot/MultiScaleNano)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Deploy to [Render](https://render.com) once. Everyone uses your URL:
+## Live app
 
-1. Push this repo to GitHub
-2. [Render Dashboard](https://dashboard.render.com) → **New** → **Blueprint** → select **MultiScaleNano** → **Apply**
-3. Wait ~10–15 min for the first build
-4. Open the **multiscale** service URL → click **Start a simulation**
+**→ [https://multiscale.onrender.com/simulate](https://multiscale.onrender.com/simulate)** *(replace with your Render URL or custom domain)*
 
-No install, no terminal, no scripts for end users.
+No install. No account. Free for research and education.
 
-## For developers (local)
+## What it is
 
-**Option A — Docker (one URL, matches production):**
+MultiscaleNano is an open web platform for nanotechnology and drug-delivery research. Design lipid nanoparticles and run a full OpenMM molecular dynamics pipeline — encapsulation, formation, stability, transport, and release — with exportable, methodology-documented results.
+
+Built for anyone in the nanotech space: students, labs, and independent researchers.
+
+## Quick links
+
+| Page | URL |
+|------|-----|
+| Simulator | `/simulate` |
+| Methods | `/methodology` |
+| About | `/about` |
+| Cite | `/cite` |
+| Partners | `/partners` |
+| Source | [github.com/AVK-creator-bot/MultiScaleNano](https://github.com/AVK-creator-bot/MultiScaleNano) |
+
+## Share it publicly
+
+1. Confirm Render shows **Live** → copy your service URL  
+2. Update the live link above (or set a custom domain in Render → Settings → Custom Domains)  
+3. Share: *"Free LNP simulation platform — [your URL]/simulate"*  
+4. Optional: add GitHub repo **About** → Website field with your URL  
+
+## For developers
 
 ```bash
 docker compose up --build
+# → http://localhost:3000/simulate
 ```
 
-Open **http://localhost:3000/simulate**
+See [docs/DEPLOY-RENDER.md](docs/DEPLOY-RENDER.md) for hosting.
 
-**Option B — Windows dev (two auto-started windows):**
-
-```powershell
-.\scripts\start-local.ps1
-```
-
-Open **http://localhost:3000/simulate**
-
-## Architecture
-
-Single container in production:
+## Cite
 
 ```
-Browser → Web (port 3000) → proxies /api/* → API (127.0.0.1:8000) → OpenMM MD
+MultiscaleNano (2026). Open web platform for lipid nanoparticle simulation
+with OpenMM molecular dynamics. https://github.com/AVK-creator-bot/MultiScaleNano
 ```
-
-Simulations run in-process inside the API. No Redis or separate worker required.
-
-## Render notes
-
-- Uses **one** Standard web service (~$25/mo) — MD simulations need CPU
-- Persistent disk mounted at `/data` for artifacts and run history
-- Health check: `GET /health`
 
 ## License
 
-TBD
+MIT — see [LICENSE](LICENSE).
