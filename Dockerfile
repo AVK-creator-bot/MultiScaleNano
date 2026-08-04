@@ -19,6 +19,8 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
+    nodejs \
+    && (command -v node >/dev/null 2>&1 || ln -s /usr/bin/nodejs /usr/bin/node) \
     && rm -rf /var/lib/apt/lists/*
 
 COPY packages/core /app/packages/core
@@ -36,7 +38,8 @@ COPY --from=web-builder /app/.next/standalone /app/web
 COPY --from=web-builder /app/.next/static /app/web/.next/static
 
 COPY scripts/start-production.sh /app/start-production.sh
-RUN chmod +x /app/start-production.sh \
+RUN sed -i 's/\r$//' /app/start-production.sh \
+    && chmod +x /app/start-production.sh \
     && mkdir -p /data/artifacts /data/store
 
 ENV MULTISCALE_ARTIFACT_DIR=/data/artifacts
