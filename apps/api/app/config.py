@@ -7,7 +7,8 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
-    api_url: str = "http://localhost:8000"
+    use_redis_queue: bool = False
+    api_url: str = "http://127.0.0.1:8000"
     artifact_dir: str = "data/artifacts"
     gromacs_container: str = "multiscale-gromacs"
     cors_origins: str = "*"

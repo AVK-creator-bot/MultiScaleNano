@@ -28,7 +28,13 @@ class JsonStore(Generic[T]):
         if not self.path.exists():
             return
         raw = json.loads(self.path.read_text(encoding="utf-8"))
-        self._cache = {UUID(k): self.model.model_validate(v) for k, v in raw.items()}
+        loaded: dict[UUID, T] = {}
+        for key, value in raw.items():
+            try:
+                loaded[UUID(key)] = self.model.model_validate(value)
+            except Exception:
+                continue
+        self._cache = loaded
 
     def _save(self) -> None:
         raw = {str(k): v.model_dump(mode="json") for k, v in self._cache.items()}

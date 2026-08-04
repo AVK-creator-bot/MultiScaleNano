@@ -1,16 +1,35 @@
 """MultiscaleNano API — orchestration layer."""
 
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.routes import designs, drug, health, lipids, runs, workflow
 
+logger = logging.getLogger(__name__)
+
 app = FastAPI(
     title="MultiscaleNano API",
     description="Unified nanotechnology drug-delivery simulation orchestrator",
     version="0.1.0",
 )
+
+
+@app.on_event("startup")
+async def verify_simulation_engine() -> None:
+    try:
+        from simulation_worker.engine.openmm_md import OPENMM_AVAILABLE
+
+        if OPENMM_AVAILABLE:
+            import openmm
+
+            logger.info("OpenMM %s ready — simulations enabled", openmm.__version__)
+        else:
+            logger.error("OpenMM not installed — simulations disabled")
+    except ImportError as exc:
+        logger.error("Simulation worker not installed — simulations disabled: %s", exc)
 
 app.add_middleware(
     CORSMiddleware,

@@ -15,11 +15,13 @@ services:
     envVars:
       - key: MULTISCALE_ARTIFACT_DIR
         value: /data/artifacts
+      - key: MULTISCALE_API_URL
+        value: http://127.0.0.1:8000
       - key: MULTISCALE_CORS_ORIGINS
         value: "*"
     disk:
       name: multiscale-artifacts
-      mountPath: /data/artifacts
+      mountPath: /data
       sizeGB: 5
 
   - type: web

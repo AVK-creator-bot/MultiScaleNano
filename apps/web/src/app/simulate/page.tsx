@@ -792,7 +792,8 @@ export default function SimulatePage() {
         )}
         {step === 3 && !health?.simulations_ready && (
           <p className="mt-3 text-center text-xs text-amber-400">
-            Simulations are temporarily unavailable. Please try again shortly.
+            {health?.message ||
+              "Simulations are unavailable — the API could not load OpenMM. Restart with .\\scripts\\start-local.ps1 or docker compose up --build."}
           </p>
         )}
       </main>

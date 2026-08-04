@@ -9,7 +9,7 @@ services:
       dockerfile: Dockerfile.api
     environment:
       MULTISCALE_ARTIFACT_DIR: /data/artifacts
-      MULTISCALE_API_URL: http://api:8000
+      MULTISCALE_API_URL: http://127.0.0.1:8000
       MULTISCALE_CORS_ORIGINS: "*"
     volumes:
       - artifact_data:/data/artifacts

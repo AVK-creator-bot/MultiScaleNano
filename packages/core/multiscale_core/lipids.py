@@ -3,9 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from multiscale_core.schema.drug import PayloadType
-from multiscale_core.schema.nanocarrier import LipidComponent, NanocarrierDesign
+from multiscale_core.schema.nanocarrier import LipidComponent
+
+if TYPE_CHECKING:
+    from multiscale_core.schema.nanocarrier import NanocarrierDesign
 
 
 @dataclass(frozen=True)

@@ -18,7 +18,7 @@ RUN pip install --no-cache-dir -U pip \
 RUN mkdir -p /data/artifacts /data/store
 
 ENV MULTISCALE_ARTIFACT_DIR=/data/artifacts
-ENV MULTISCALE_API_URL=http://localhost:8000
+ENV MULTISCALE_API_URL=http://127.0.0.1:8000
 ENV PYTHONUNBUFFERED=1
 
 EXPOSE 8000

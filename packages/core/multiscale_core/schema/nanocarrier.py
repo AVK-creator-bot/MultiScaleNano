@@ -80,11 +80,16 @@ class NanocarrierDesign(BaseModel):
 
     @model_validator(mode="after")
     def validate_lipids(self) -> NanocarrierDesign:
-        from multiscale_core.lipids import validate_lipid_composition
-
-        ok, msg = validate_lipid_composition(self.lipids)
-        if not ok:
-            raise ValueError(msg)
+        if not self.lipids:
+            raise ValueError("At least one lipid component is required")
+        total = sum(l.ratio for l in self.lipids)
+        if abs(total - 1.0) > 0.02:
+            raise ValueError(
+                f"Lipid molar fractions must sum to 100% (currently {total * 100:.1f}%)"
+            )
+        for lipid in self.lipids:
+            if lipid.ratio < 0 or lipid.ratio > 1:
+                raise ValueError(f"Invalid ratio for {lipid.name}")
         return self
 
     def lipid_names(self) -> list[str]:

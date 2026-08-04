@@ -70,21 +70,26 @@ async def enqueue_simulation_job(
         "mode": mode.value,
     }
 
+    # Simulations run in-process by default. Redis queue is opt-in only.
     use_in_process = True
+    use_redis = settings.redis_url and settings.use_redis_queue
 
-    try:
-        r = await get_redis()
-        await r.ping()
-        if await _worker_is_alive(r):
-            await r.rpush(QUEUE_NAME, json.dumps(job))
-            await r.aclose()
-            logger.info("Enqueued job %s to Redis (worker active)", run_id)
-            use_in_process = False
-        else:
-            await r.aclose()
-            logger.warning("Redis up but no worker heartbeat — running in-process for %s", run_id)
-    except Exception as exc:
-        logger.warning("Redis unavailable (%s) — running in-process", exc)
+    if use_redis:
+        try:
+            r = await get_redis()
+            await r.ping()
+            if await _worker_is_alive(r):
+                await r.rpush(QUEUE_NAME, json.dumps(job))
+                await r.aclose()
+                logger.info("Enqueued job %s to Redis (worker active)", run_id)
+                use_in_process = False
+            else:
+                await r.aclose()
+                logger.warning(
+                    "Redis up but no worker heartbeat — running in-process for %s", run_id
+                )
+        except Exception as exc:
+            logger.warning("Redis unavailable (%s) — running in-process", exc)
 
     if use_in_process:
         loop = asyncio.get_event_loop()
