@@ -10,6 +10,7 @@ RUN npm ci
 COPY apps/web .
 ENV API_INTERNAL_URL=http://127.0.0.1:8000
 ENV NEXT_TELEMETRY_DISABLED=1
+RUN mkdir -p public
 RUN npm run build
 
 FROM python:3.12-slim-bookworm
