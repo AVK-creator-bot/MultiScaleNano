@@ -27,6 +27,7 @@ Built for anyone in the nanotech space: students, labs, and independent research
 | About | `/about` |
 | Cite | `/cite` |
 | Partners | `/partners` |
+| Support | Multiscalenano@outlook.com |
 | Source | [github.com/AVK-creator-bot/MultiScaleNano](https://github.com/AVK-creator-bot/MultiScaleNano) |
 
 ## Share it publicly

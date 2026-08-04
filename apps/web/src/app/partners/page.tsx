@@ -40,18 +40,27 @@ export default function PartnersPage() {
         <section className="rounded-xl border border-[var(--primary)]/30 bg-[var(--primary)]/10 p-6">
           <h2 className="font-semibold">Get in touch</h2>
           <p className="mt-2 text-sm text-[var(--muted)]">
-            Open a GitHub issue with the label <strong className="text-white">partnership</strong>{" "}
-            or email through your preferred channel listed on the repository. Include your
-            institution, lab or course name, and how you&apos;d like to use MultiscaleNano.
+            Email us for university partnerships, lab adoption, course use, or support. Include
+            your institution, lab or course name, and how you&apos;d like to use MultiscaleNano.
           </p>
           <a
-            href="https://github.com/AVK-creator-bot/MultiScaleNano/issues/new"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="mailto:Multiscalenano@outlook.com"
             className="mt-4 inline-block rounded-lg bg-[var(--primary)] px-5 py-2.5 text-sm font-medium text-white hover:bg-[var(--primary-hover)]"
           >
-            Start a partnership conversation
+            Multiscalenano@outlook.com
           </a>
+          <p className="mt-4 text-xs text-[var(--muted)]">
+            You can also open a{" "}
+            <a
+              href="https://github.com/AVK-creator-bot/MultiScaleNano/issues/new"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[var(--primary)] hover:underline"
+            >
+              GitHub issue
+            </a>{" "}
+            for technical feedback.
+          </p>
         </section>
 
         <p className="text-sm text-[var(--muted)]">

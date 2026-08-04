@@ -54,6 +54,11 @@ export function SiteFooter() {
               </Link>
             </li>
             <li>
+              <a href="mailto:Multiscalenano@outlook.com" className="hover:text-white">
+                Support
+              </a>
+            </li>
+            <li>
               <a
                 href="https://github.com/AVK-creator-bot/MultiScaleNano"
                 target="_blank"
@@ -67,8 +72,10 @@ export function SiteFooter() {
         </div>
       </div>
       <div className="border-t border-[var(--border)] py-4 text-center text-xs text-[var(--muted)]">
-        Open source · Free for research and education · Computational predictions — validate
-        experimentally
+        Open source · Free for research and education ·{" "}
+        <a href="mailto:Multiscalenano@outlook.com" className="hover:text-white">
+          Multiscalenano@outlook.com
+        </a>
       </div>
     </footer>
   );

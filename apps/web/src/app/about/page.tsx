@@ -78,7 +78,14 @@ export default function AboutPage() {
             . Contributions and university collaborations welcome — see{" "}
             <Link href="/partners" className="text-[var(--primary)] hover:underline">
               Partners
-            </Link>
+            </Link>{" "}
+            or email{" "}
+            <a
+              href="mailto:Multiscalenano@outlook.com"
+              className="text-[var(--primary)] hover:underline"
+            >
+              Multiscalenano@outlook.com
+            </a>
             .
           </p>
         </section>
