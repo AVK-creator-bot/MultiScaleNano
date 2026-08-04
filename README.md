@@ -2,7 +2,7 @@
 
 **Design and simulate lipid nanoparticles in your browser.**
 
-No command line, no scripts, no local setup for end users — just open the app and run simulations.
+Project nanotech — no command line, no scripts, no local setup for end users. Just open the app and run simulations.
 
 ## Use it on the web
 
