@@ -1,0 +1,14 @@
+# MultiscaleNano Docker build
+node_modules
+**/node_modules
+.git
+.gitignore
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.next
+data/artifacts
+data/store
+*.md
+.cursor
+apps/web/.next

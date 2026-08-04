@@ -1,0 +1,25 @@
+[project]
+name = "multiscale-worker"
+version = "0.1.0"
+description = "MultiscaleNano simulation worker"
+requires-python = ">=3.11"
+dependencies = [
+    "redis>=5.0",
+    "httpx>=0.27",
+    "pydantic>=2.6",
+    "numpy>=1.26",
+    "openmm>=8.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.3"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["simulation_worker"]
+
+[tool.uv.sources]
+multiscale-core = { path = "../../packages/core", editable = true }

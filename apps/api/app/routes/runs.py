@@ -1,0 +1,181 @@
+"""Simulation run endpoints."""
+
+import json
+from datetime import datetime, timezone
+from enum import Enum
+from uuid import UUID, uuid4
+
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field
+
+from multiscale_core.paths import ARTIFACT_DIR
+from multiscale_core.lipids import validate_lipid_composition
+from multiscale_core.schema.simulation import SimulationMode
+from multiscale_core.schema.workflow import ModuleName, plan_lnp_workflow
+
+from app.routes.designs import design_store
+from app.services.queue import enqueue_simulation_job
+from app.services.store import JsonStore
+
+router = APIRouter()
+
+
+class RunStatus(str, Enum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class ModuleRunStatus(BaseModel):
+    module: ModuleName
+    status: RunStatus = RunStatus.QUEUED
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    artifact_id: UUID | None = None
+    error: str | None = None
+
+
+class SimulationRun(BaseModel):
+    id: UUID = Field(default_factory=uuid4)
+    design_id: UUID
+    status: RunStatus = RunStatus.QUEUED
+    simulation_mode: SimulationMode = SimulationMode.STANDARD_MD
+    modules: list[ModuleRunStatus] = Field(default_factory=list)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+run_store: JsonStore[SimulationRun] = JsonStore("runs", SimulationRun)
+
+
+class StartRunRequest(BaseModel):
+    design_id: UUID
+    enabled_modules: list[ModuleName] | None = None
+    simulation_mode: SimulationMode = SimulationMode.STANDARD_MD
+
+
+@router.post("", status_code=201)
+async def start_run(body: StartRunRequest):
+    design = design_store.get(body.design_id)
+    if design is None:
+        raise HTTPException(status_code=404, detail="Design not found")
+
+    if body.simulation_mode == SimulationMode.SCREENING:
+        raise HTTPException(
+            status_code=400,
+            detail="Screening mode is disabled — all metrics require MD simulation.",
+        )
+
+    # Validate drug structure resolves before queuing expensive MD work
+    from multiscale_core.drug.resolver import resolve_drug_structure
+
+    validation_dir = ARTIFACT_DIR / "validation" / str(body.design_id)
+    try:
+        resolve_drug_structure(design.drug, validation_dir)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=f"Drug structure validation failed: {exc}") from exc
+
+    try:
+        from simulation_worker.engine.openmm_md import OPENMM_AVAILABLE
+    except ImportError:
+        OPENMM_AVAILABLE = False
+    if not OPENMM_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="OpenMM is not installed. Run: pip install openmm — then restart the API.",
+        )
+
+    ok, msg = validate_lipid_composition(design.lipids)
+    if not ok:
+        raise HTTPException(status_code=422, detail=msg)
+
+    plan = plan_lnp_workflow(enabled=body.enabled_modules, mode=body.simulation_mode)
+    run = SimulationRun(
+        design_id=body.design_id,
+        simulation_mode=body.simulation_mode,
+        modules=[ModuleRunStatus(module=node.module) for node in plan.modules],
+    )
+    run_store.set(run.id, run)
+
+    await enqueue_simulation_job(
+        run_id=str(run.id),
+        design_json=design.model_dump_json(),
+        modules=[m.value for m in plan.module_names()],
+        mode=body.simulation_mode,
+    )
+
+    return run
+
+
+@router.get("/{run_id}")
+async def get_run(run_id: UUID):
+    run = run_store.get(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+    return run
+
+
+@router.get("")
+async def list_runs():
+    return run_store.values()
+
+
+@router.get("/{run_id}/results")
+async def get_run_results(run_id: UUID):
+    """Return aggregated module artifacts for a completed run."""
+    run = run_store.get(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    run_dir = ARTIFACT_DIR / str(run_id)
+    if not run_dir.exists():
+        return {"run_id": str(run_id), "status": run.status, "modules": {}}
+
+    results: dict[str, dict] = {}
+    for module_dir in run_dir.iterdir():
+        artifact_file = module_dir / "artifact.json"
+        if artifact_file.exists():
+            results[module_dir.name] = json.loads(artifact_file.read_text(encoding="utf-8"))
+
+    return {"run_id": str(run_id), "status": run.status, "modules": results}
+
+
+@router.patch("/{run_id}/modules/{module_name}")
+async def update_module_status(
+    run_id: UUID,
+    module_name: ModuleName,
+    status: RunStatus = Query(...),
+    error: str | None = Query(None),
+):
+    """Called by workers to report progress."""
+    run = run_store.get(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    for mod in run.modules:
+        if mod.module == module_name:
+            mod.status = status
+            if error:
+                mod.error = error[:2000]
+            if status == RunStatus.RUNNING:
+                mod.started_at = datetime.now(timezone.utc)
+            elif status in (RunStatus.COMPLETED, RunStatus.FAILED):
+                mod.completed_at = datetime.now(timezone.utc)
+            break
+    else:
+        raise HTTPException(status_code=404, detail="Module not found in run")
+
+    if all(m.status == RunStatus.COMPLETED for m in run.modules):
+        run.status = RunStatus.COMPLETED
+    elif any(m.status == RunStatus.FAILED for m in run.modules):
+        run.status = RunStatus.FAILED
+    elif any(m.status == RunStatus.RUNNING for m in run.modules):
+        run.status = RunStatus.RUNNING
+    elif not any(m.status in (RunStatus.QUEUED, RunStatus.RUNNING) for m in run.modules):
+        # All modules reached a terminal state
+        run.status = RunStatus.COMPLETED if all(
+            m.status == RunStatus.COMPLETED for m in run.modules
+        ) else RunStatus.FAILED
+
+    run_store.set(run_id, run)
+    return run
