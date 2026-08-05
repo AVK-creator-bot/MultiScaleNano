@@ -16,7 +16,7 @@ export function SiteHeader() {
             About
           </Link>
           <Link href="/runs" className="hidden text-[var(--muted)] hover:text-white sm:inline">
-            History
+            Run History
           </Link>
           <Link href="/methodology" className="text-[var(--muted)] hover:text-white">
             Methods

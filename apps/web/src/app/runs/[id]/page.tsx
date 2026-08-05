@@ -71,7 +71,7 @@ export default function RunDetailPage() {
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 text-center">
         <p className="text-red-400">{error || "Run not found"}</p>
         <Link href="/runs" className="text-sm text-[var(--primary)] hover:underline">
-          Back to history
+          Back to Run History
         </Link>
       </div>
     );
@@ -82,7 +82,7 @@ export default function RunDetailPage() {
       <header className="border-b border-[var(--border)] px-6 py-4">
         <div className="mx-auto flex max-w-3xl items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link href="/runs" className="text-[var(--muted)] hover:text-white" aria-label="History">
+            <Link href="/runs" className="text-[var(--muted)] hover:text-white" aria-label="Run History">
               <ArrowLeft className="h-5 w-5" />
             </Link>
             <div>

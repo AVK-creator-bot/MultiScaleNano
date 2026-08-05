@@ -25,7 +25,7 @@ export default function RunsPage() {
           <Link href="/" className="text-[var(--muted)] hover:text-white" aria-label="Home">
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <h1 className="text-lg font-semibold">Simulation history</h1>
+          <h1 className="text-lg font-semibold">Run History</h1>
         </div>
       </header>
 

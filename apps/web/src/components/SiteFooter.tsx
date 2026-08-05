@@ -28,7 +28,7 @@ export function SiteFooter() {
             </li>
             <li>
               <Link href="/runs" className="hover:text-white">
-                Run history
+                Run History
               </Link>
             </li>
           </ul>
