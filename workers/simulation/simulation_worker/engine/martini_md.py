@@ -171,6 +171,8 @@ def _run_martini_production(
     energy_samples: list[float] = []
 
     try:
+        from openmm import Vec3
+
         conf = GromacsGroFile(str(gro_path))
         box_vectors = conf.getPeriodicBoxVectors()
         top = MartiniTopFile(
@@ -188,8 +190,6 @@ def _run_martini_production(
         simulation = Simulation(top.topology, system, integrator, platform)
 
         positions = list(conf.getPositions(asNumpy=False))
-        from openmm import Vec3
-        import openmm.unit as unit
 
         vec_positions = []
         for p in positions:
