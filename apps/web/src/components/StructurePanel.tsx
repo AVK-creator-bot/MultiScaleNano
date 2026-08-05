@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Download } from "lucide-react";
-import { StructureViewer } from "@/components/StructureViewer";
+import { BeadStructureViewer } from "@/components/BeadStructureViewer";
+import { buildPdbFromBeads, type BeadStructure } from "@/lib/bead-structure";
 import { runStructureUrl, type ModuleArtifact } from "@/lib/api";
 
 const MODULE_LABELS: Record<string, string> = {
@@ -26,9 +27,17 @@ interface StructurePanelProps {
   modules: Record<string, ModuleArtifact | { data?: Record<string, unknown> }>;
 }
 
+function getStructure(
+  mod: ModuleArtifact | { data?: Record<string, unknown> }
+): BeadStructure | undefined {
+  return mod.data?.structure as BeadStructure | undefined;
+}
+
 function moduleHasStructure(mod: ModuleArtifact | { data?: Record<string, unknown> }): boolean {
-  const structure = mod.data?.structure as { available?: boolean } | undefined;
-  return Boolean(structure?.available);
+  const structure = getStructure(mod);
+  if (!structure?.available) return false;
+  if (structure.positions_nm?.length) return true;
+  return Boolean(structure.pdb_file);
 }
 
 export function StructurePanel({ runId, modules }: StructurePanelProps) {
@@ -38,19 +47,28 @@ export function StructurePanel({ runId, modules }: StructurePanelProps) {
         (name) => ({
           name,
           label: MODULE_LABELS[name] || name.replace(/_/g, " "),
+          structure: getStructure(modules[name]),
         })
       ),
     [modules]
   );
 
   const [active, setActive] = useState<string | null>(null);
-  const selected = active && available.some((m) => m.name === active) ? active : available[0]?.name;
+  const selectedEntry =
+    (active && available.find((m) => m.name === active)) || available[0] || null;
+  const selected = selectedEntry?.name;
+  const structure = selectedEntry?.structure;
 
   if (!available.length) {
     return null;
   }
 
   const pdbUrl = selected ? runStructureUrl(runId, selected) : "";
+  const downloadHref = structure?.positions_nm?.length
+    ? `data:chemical/x-pdb;charset=utf-8,${encodeURIComponent(
+        buildPdbFromBeads(structure.positions_nm, structure.bead_roles || [])
+      )}`
+    : pdbUrl;
 
   return (
     <section className="space-y-3">
@@ -58,8 +76,8 @@ export function StructurePanel({ runId, modules }: StructurePanelProps) {
         <h2 className="font-semibold">3D structure</h2>
         {selected && (
           <a
-            href={pdbUrl}
-            download
+            href={downloadHref}
+            download={`run-${runId}-${selected}.pdb`}
             className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs hover:bg-[var(--surface-elevated)]"
           >
             <Download className="h-3.5 w-3.5" />
@@ -87,7 +105,7 @@ export function StructurePanel({ runId, modules }: StructurePanelProps) {
         </div>
       )}
 
-      <StructureViewer key={selected} pdbUrl={pdbUrl} />
+      <BeadStructureViewer key={selected} structure={structure} pdbUrl={pdbUrl} />
 
       <div className="flex flex-wrap gap-4 text-xs text-[var(--muted)]">
         <span className="inline-flex items-center gap-1.5">
@@ -104,7 +122,7 @@ export function StructurePanel({ runId, modules }: StructurePanelProps) {
         </span>
       </div>
       <p className="text-xs text-[var(--muted)]">
-        Final coarse-grained MD coordinates from replicate 1. Drag to rotate; scroll to zoom.
+        Final coarse-grained MD coordinates from replicate 1. Drag to rotate.
       </p>
     </section>
   );

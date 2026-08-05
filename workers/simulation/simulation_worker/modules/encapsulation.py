@@ -96,7 +96,7 @@ def run_encapsulation(
     structure = export_md_structure(
         work_dir,
         md,
-        ["drug"] * drug_beads + ["lipid"] * lipid_beads,
+        ["drug"] * max(2, drug_beads) + ["lipid"] * max(8, lipid_beads),
         title=f"Encapsulation — {design.name}",
     )
 

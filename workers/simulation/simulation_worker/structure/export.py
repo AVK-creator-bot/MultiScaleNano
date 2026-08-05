@@ -33,6 +33,7 @@ def export_md_structure(
         "pdb_file": "structure.pdb",
         "bead_count": n,
         "bead_roles": roles,
+        "positions_nm": [[round(c, 4) for c in p] for p in positions],
         "units": "nm",
         "radius_of_gyration_nm": md.radius_of_gyration_nm,
     }
