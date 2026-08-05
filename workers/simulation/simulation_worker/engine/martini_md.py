@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 MARTINI_FF_FILES = (
     "martini_v3.0.0.itp",
     "martini_v3.0.0_phospholipids_v1.itp",
+    "martini_v3.0_sterols_v1.0.itp",
     "martini_v3.0.0_solvents_v1.itp",
     "martini_v3.0.0_ions_v1.itp",
 )
