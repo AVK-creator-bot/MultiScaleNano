@@ -16,6 +16,13 @@ from simulation_worker.engine.openmm_md import MDResult, _jitter_positions
 
 logger = logging.getLogger(__name__)
 
+MARTINI_FF_FILES = (
+    "martini_v3.0.0.itp",
+    "martini_v3.0.0_phospholipids_v1.itp",
+    "martini_v3.0.0_solvents_v1.itp",
+    "martini_v3.0.0_ions_v1.itp",
+)
+
 MARTINI_AVAILABLE = False
 MartiniTopFile = None
 
@@ -44,15 +51,12 @@ def md_steps_for_martini(mode: str) -> int:
 
 def _ensure_force_field_files(work_dir: Path) -> None:
     src = martini_ff_dir()
-    required = [
-        "martini_v3.0.0.itp",
-        "martini_v3.0.0_phospholipids_v1.itp",
-        "martini_v3.0.0_solvents_v1.itp",
-    ]
-    for name in required:
+    for name in MARTINI_FF_FILES:
         if not (src / name).is_file():
             raise FileNotFoundError(f"Martini force field file missing: {src / name}")
         shutil.copy2(src / name, work_dir / name)
+    # insane emits #include "martini.itp"; alias core parameters for nested lookups
+    shutil.copy2(work_dir / "martini_v3.0.0.itp", work_dir / "martini.itp")
 
 
 def _parse_lipid_indices(gro_path: Path) -> list[int]:
@@ -125,7 +129,7 @@ def build_martini_lnp_system(
     if result.returncode != 0 or not gro_path.is_file() or not top_path.is_file():
         raise RuntimeError(f"insane failed: {(result.stderr or result.stdout)[-500:]}")
 
-    _patch_topology_includes(top_path, work_dir)
+    _patch_topology_includes(top_path)
     lipid_indices = _parse_lipid_indices(gro_path)
     if not lipid_indices:
         raise RuntimeError("No lipid beads found in Martini system")
@@ -133,14 +137,19 @@ def build_martini_lnp_system(
     return gro_path, top_path, lipid_indices
 
 
-def _patch_topology_includes(top_path: Path, work_dir: Path) -> None:
+def _patch_topology_includes(top_path: Path) -> None:
+    """Rewrite insane's generic martini.itp include to Martini 3 parameter files."""
     text = top_path.read_text(encoding="utf-8")
-    for name in (
-        "martini_v3.0.0.itp",
-        "martini_v3.0.0_phospholipids_v1.itp",
-        "martini_v3.0.0_solvents_v1.itp",
-    ):
-        text = text.replace(f'#include "{name}"', f'#include "{work_dir / name}"')
+    include_block = "\n".join(f'#include "{name}"' for name in MARTINI_FF_FILES)
+    text = re.sub(
+        r'#include\s+"martini\.itp"\s*\n?',
+        include_block + "\n\n",
+        text,
+        count=1,
+    )
+    if not any(f'#include "{name}"' in text for name in MARTINI_FF_FILES):
+        text = include_block + "\n\n" + text
+    for name in MARTINI_FF_FILES:
         text = re.sub(rf'#include\s+"[^"]*{re.escape(name)}"', f'#include "{name}"', text)
     top_path.write_text(text, encoding="utf-8")
 
