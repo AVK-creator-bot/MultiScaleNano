@@ -10,6 +10,10 @@ services:
     plan: standard
     healthCheckPath: /health
     envVars:
+      - key: MULTISCALE_FORCE_FIELD
+        value: martini3
+      - key: MARTINI_FF_DIR
+        value: /app/martini_ff
       - key: MULTISCALE_ARTIFACT_DIR
         value: /data/artifacts
       - key: MULTISCALE_API_URL

@@ -13,7 +13,8 @@ from multiscale_core.schema.simulation import SimulationMode
 from multiscale_core.schema.workflow import ModuleName, SimulationScale
 
 from simulation_worker.analysis.artifact_meta import enrich_artifact_data
-from simulation_worker.engine.openmm_md import (
+from simulation_worker.engine.md_dispatch import (
+    force_field_from_engine,
     md_steps_for_mode,
     replicate_count_for_mode,
     run_replicated_md,
@@ -53,6 +54,7 @@ def run_stability(
             temperature_k=design.environment.temperature_k,
             base_seed=run_seed(run_id, "stability", replicate),
             hot_seed=run_seed(run_id, "stability_hot", replicate),
+            design=design,
         )
 
     rep_results = run_replicated_md(_one, n_rep)
@@ -120,7 +122,7 @@ def run_stability(
         uncertainty={"stability_score": stab_u.model_dump(), "drug_leakage_rate_per_hour": leak_u.model_dump()},
         provenance=ProvenanceRecord(
             upstream_artifacts=[upstream["formation"].id] if "formation" in upstream else [],
-            force_field="lj_coarse_grained",
+            force_field=force_field_from_engine(base_md.engine if base_md else None),
             engine_version=base_md.engine if base_md else "openmm",
             translation_method="thermal_perturbation_md",
         ),

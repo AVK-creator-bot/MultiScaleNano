@@ -64,6 +64,34 @@ LIPID_PRESETS: dict[str, list[LipidComponent]] = {
 }
 
 
+# Martini 3 lipid codes for insane (https://github.com/Tsjerk/Insane)
+MARTINI_LIPID_MAP: dict[str, str] = {
+    "SM-102": "DOPC",
+    "ALC-0315": "DOPC",
+    "DLin-MC3-DMA": "DOPC",
+    "DSPC": "DPPC",
+    "DOPC": "DOPC",
+    "DOPE": "DOPE",
+    "Cholesterol": "CHOL",
+    "DSPE-PEG2000": "DOPC",
+    "DSPE-PEG5000": "DOPC",
+}
+
+
+def martini_lipid_code(name: str) -> str:
+    return MARTINI_LIPID_MAP.get(name, "DOPC")
+
+
+def insane_lipid_flags(lipids: list[LipidComponent]) -> list[str]:
+    """Build insane `-l NAME:ratio` arguments from design lipids."""
+    flags: list[str] = []
+    for lipid in lipids:
+        code = martini_lipid_code(lipid.name)
+        ratio = max(1, int(round(lipid.ratio * 10)))
+        flags.extend(["-l", f"{code}:{ratio}"])
+    return flags
+
+
 def lipid_params(name: str) -> LipidParams:
     if name in LIPID_LIBRARY:
         return LIPID_LIBRARY[name]

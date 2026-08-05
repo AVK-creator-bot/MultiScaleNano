@@ -9,6 +9,7 @@ dependencies = [
     "pydantic>=2.6",
     "numpy>=1.26",
     "openmm>=8.0",
+    "setuptools>=68",
 ]
 
 [project.optional-dependencies]

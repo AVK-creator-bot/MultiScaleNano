@@ -5,7 +5,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 const MODULES = [
   {
     name: "Encapsulation",
-    engine: "OpenMM coarse-grained LJ",
+    engine: "Martini 3 (OpenMM) or coarse-grained LJ fallback",
     metrics: [
       "Potential energy from Langevin MD trajectory",
       "Encapsulation efficiency from core bead fraction × compactness",
@@ -15,7 +15,7 @@ const MODULES = [
   },
   {
     name: "Formation",
-    engine: "OpenMM self-assembly MD",
+    engine: "Martini 3 lipid self-assembly (OpenMM)",
     metrics: [
       "Hydrodynamic radius R_H ≈ 2 × R_g from final configuration",
       "Morphology classification (core-shell vs compact-sphere)",
@@ -25,7 +25,7 @@ const MODULES = [
   },
   {
     name: "Stability",
-    engine: "OpenMM thermal perturbation (+10 K)",
+    engine: "Martini 3 thermal perturbation (+10 K)",
     metrics: [
       "Stability score from R_g change under heat stress",
       "Drug leakage rate from energy fluctuation proxy",
@@ -120,10 +120,11 @@ export default function MethodologyPage() {
         <section className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4 text-sm text-[var(--muted)]">
           <p className="font-medium text-white">Limitations</p>
           <p className="mt-2">
-            Results are computational predictions from simplified coarse-grained models. Completed
-            runs include an interactive 3D viewer of final MD bead coordinates (PDB export). They
-            should supplement — not replace — experimental validation. Screening mode is disabled;
-            all reported metrics require MD simulation.
+            Lipid modules use the Martini 3 coarse-grained force field (via martini_openmm and
+            insane) when available — the same class of model used on nanoHUB GROMACS workflows.
+            Ionizable lipids (SM-102, ALC-0315, MC3) map to closest Martini lipid templates until
+            custom topologies are added. Corona and membrane modules still use the legacy LJ bead
+            model. Results are computational predictions and should supplement experimental validation.
           </p>
         </section>
       </main>

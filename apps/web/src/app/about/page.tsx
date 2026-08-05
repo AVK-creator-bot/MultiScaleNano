@@ -53,8 +53,9 @@ export default function AboutPage() {
         <section className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-6">
           <h2 className="font-semibold text-amber-100">Important limitations</h2>
           <p className="mt-2 text-sm text-amber-100/90">
-            Results use a coarse-grained Lennard-Jones bead model (OpenMM), not atomistic Martini or
-            GROMACS. Predictions are for comparative screening and hypothesis generation — they
+            Results use Martini 3 coarse-grained MD (OpenMM) when deployed with full force-field
+            assets, aligned with nanoHUB-style lipid simulations. Predictions are for comparative
+            screening and hypothesis generation — they should supplement experimental validation.
             should supplement, not replace, experimental validation. See{" "}
             <Link href="/methodology" className="underline">
               Methods

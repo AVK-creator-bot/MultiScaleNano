@@ -79,7 +79,7 @@ async def start_run(body: StartRunRequest):
         raise HTTPException(status_code=400, detail=f"Drug structure validation failed: {exc}") from exc
 
     try:
-        from simulation_worker.engine.openmm_md import OPENMM_AVAILABLE
+        from simulation_worker.engine.md_dispatch import OPENMM_AVAILABLE
     except ImportError:
         OPENMM_AVAILABLE = False
     if not OPENMM_AVAILABLE:

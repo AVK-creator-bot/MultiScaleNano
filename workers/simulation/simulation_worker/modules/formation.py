@@ -16,7 +16,8 @@ from multiscale_core.schema.simulation import SimulationMode
 from multiscale_core.schema.workflow import ModuleName, SimulationScale
 
 from simulation_worker.analysis.artifact_meta import enrich_artifact_data
-from simulation_worker.engine.openmm_md import (
+from simulation_worker.engine.md_dispatch import (
+    force_field_from_engine,
     md_steps_for_mode,
     replicate_count_for_mode,
     run_formation_md,
@@ -63,6 +64,7 @@ def run_formation(
             temperature_k=design.environment.temperature_k,
             random_seed=run_seed(run_id, "formation", replicate),
             lipid_bead_specs=lipid_specs if len(lipid_specs) == n_beads else None,
+            design=design,
         )
 
     md_results = run_replicated_md(_one, n_rep)
@@ -128,7 +130,7 @@ def run_formation(
         provenance=ProvenanceRecord(
             upstream_artifacts=[upstream["encapsulation"].id] if "encapsulation" in upstream else [],
             translation_method="encapsulation_to_formation",
-            force_field="lj_coarse_grained",
+            force_field=force_field_from_engine(md.engine),
             engine_version=md.engine,
         ),
         files=(

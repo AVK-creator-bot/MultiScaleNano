@@ -20,18 +20,25 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
     nodejs \
+    curl \
     && (command -v node >/dev/null 2>&1 || ln -s /usr/bin/nodejs /usr/bin/node) \
     && rm -rf /var/lib/apt/lists/*
 
 COPY packages/core /app/packages/core
 COPY workers/simulation /app/workers/simulation
 COPY apps/api /app/apps/api
+COPY scripts/download-martini-ff.sh /app/scripts/download-martini-ff.sh
 
-RUN pip install --no-cache-dir -U pip \
+RUN pip install --no-cache-dir -U pip setuptools \
     && pip install --no-cache-dir openmm \
+    && pip install --no-cache-dir "git+https://github.com/maccallumlab/martini_openmm.git" \
+    && pip install --no-cache-dir "git+https://github.com/Tsjerk/Insane.git" \
     && pip install --no-cache-dir -e /app/packages/core \
     && pip install --no-cache-dir -e /app/workers/simulation \
-    && pip install --no-cache-dir -e /app/apps/api
+    && pip install --no-cache-dir -e /app/apps/api \
+    && sed -i 's/\r$//' /app/scripts/download-martini-ff.sh \
+    && chmod +x /app/scripts/download-martini-ff.sh \
+    && /app/scripts/download-martini-ff.sh /app/martini_ff
 
 COPY --from=web-builder /app/public /app/web/public
 COPY --from=web-builder /app/.next/standalone /app/web
@@ -43,6 +50,8 @@ RUN sed -i 's/\r$//' /app/start-production.sh \
     && mkdir -p /data/artifacts /data/store
 
 ENV MULTISCALE_ARTIFACT_DIR=/data/artifacts
+ENV MULTISCALE_FORCE_FIELD=martini3
+ENV MARTINI_FF_DIR=/app/martini_ff
 ENV MULTISCALE_API_URL=http://127.0.0.1:8000
 ENV API_INTERNAL_URL=http://127.0.0.1:8000
 ENV PYTHONUNBUFFERED=1

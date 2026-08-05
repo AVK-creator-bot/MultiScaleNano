@@ -38,7 +38,7 @@ def execute_pipeline(
     api_url: str = "http://localhost:8000",
 ) -> dict[str, ScaleArtifact]:
     from multiscale_core.schema.nanocarrier import NanocarrierDesign
-    from simulation_worker.engine.openmm_md import OPENMM_AVAILABLE
+        from simulation_worker.engine.md_dispatch import OPENMM_AVAILABLE
     from simulation_worker.modules.cell_interaction import run_cell_interaction
     from simulation_worker.modules.corona import run_corona
     from simulation_worker.modules.encapsulation import run_encapsulation

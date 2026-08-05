@@ -16,7 +16,8 @@ from multiscale_core.schema.workflow import ModuleName, SimulationScale
 
 from simulation_worker.analysis.artifact_meta import enrich_artifact_data
 from simulation_worker.analysis.md_analysis import encapsulation_from_md
-from simulation_worker.engine.openmm_md import (
+from simulation_worker.engine.md_dispatch import (
+    force_field_from_engine,
     md_steps_for_mode,
     replicate_count_for_mode,
     run_encapsulation_md,
@@ -69,6 +70,7 @@ def run_encapsulation(
             target_radius_nm=design.target_size_nm / 2,
             random_seed=run_seed(run_id, "encapsulation", replicate),
             lipid_bead_specs=lipid_specs,
+            design=design,
         )
 
     md_results = run_replicated_md(_one, n_rep)
@@ -145,7 +147,7 @@ def run_encapsulation(
             "encapsulation_efficiency_estimate": eff_u.model_dump(),
         },
         provenance=ProvenanceRecord(
-            force_field="lj_coarse_grained",
+            force_field=force_field_from_engine(md.engine),
             engine_version=md.engine,
             translation_method="md_trajectory_analysis",
         ),
