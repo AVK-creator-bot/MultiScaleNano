@@ -27,6 +27,30 @@ async def _worker_is_alive(r: redis.Redis) -> bool:
     return heartbeat is not None
 
 
+def _mark_run_failed(run_id: str, modules: list[str], error: str) -> None:
+    """Persist failure in the store when HTTP status updates fail."""
+    try:
+        from datetime import datetime, timezone
+        from uuid import UUID
+
+        from app.routes.runs import RunStatus, run_store
+
+        run = run_store.get(UUID(run_id))
+        if run is None:
+            return
+        target = modules[0] if modules else None
+        for mod in run.modules:
+            if target is None or mod.module.value == target:
+                mod.status = RunStatus.FAILED
+                mod.error = error[:2000]
+                mod.completed_at = datetime.now(timezone.utc)
+                break
+        run.status = RunStatus.FAILED
+        run_store.set(UUID(run_id), run)
+    except Exception:
+        logger.exception("Failed to mark run %s failed in store", run_id)
+
+
 def _run_job_sync(
     run_id: str,
     design_json: str,
@@ -47,14 +71,15 @@ def _run_job_sync(
         )
     except Exception as exc:
         logger.exception("Simulation job failed for run %s", run_id)
+        err = str(exc)[:2000]
         try:
             httpx.patch(
                 f"{settings.api_url}/api/runs/{run_id}/modules/{modules[0]}",
-                params={"status": "failed", "error": str(exc)[:2000]},
+                params={"status": "failed", "error": err},
                 timeout=10,
-            )
+            ).raise_for_status()
         except httpx.HTTPError:
-            pass
+            _mark_run_failed(run_id, modules, err)
 
 
 async def enqueue_simulation_job(

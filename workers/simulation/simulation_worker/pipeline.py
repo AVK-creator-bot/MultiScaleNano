@@ -19,13 +19,15 @@ def _default_status(run_id: str, api_url: str) -> Callable[[str, str, str | None
             params: dict[str, str] = {"status": status}
             if error:
                 params["error"] = error[:2000]
-            httpx.patch(
+            response = httpx.patch(
                 f"{api_url}/api/runs/{run_id}/modules/{module}",
                 params=params,
                 timeout=30,
             )
+            response.raise_for_status()
         except httpx.HTTPError as exc:
-            logger.warning("Status update failed %s/%s: %s", run_id, module, exc)
+            logger.error("Status update failed %s/%s: %s", run_id, module, exc)
+            raise
 
     return update
 
@@ -38,7 +40,7 @@ def execute_pipeline(
     api_url: str = "http://localhost:8000",
 ) -> dict[str, ScaleArtifact]:
     from multiscale_core.schema.nanocarrier import NanocarrierDesign
-        from simulation_worker.engine.md_dispatch import OPENMM_AVAILABLE
+    from simulation_worker.engine.md_dispatch import OPENMM_AVAILABLE
     from simulation_worker.modules.cell_interaction import run_cell_interaction
     from simulation_worker.modules.corona import run_corona
     from simulation_worker.modules.encapsulation import run_encapsulation
