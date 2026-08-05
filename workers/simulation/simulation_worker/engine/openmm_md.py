@@ -125,6 +125,23 @@ def _initial_sphere_positions(n: int, radius_nm: float) -> list:
     return positions
 
 
+def _jitter_positions(positions: list, seed: int, sigma_nm: float = 0.06) -> list:
+    """Break symmetry so identical designs do not yield identical trajectories."""
+    import numpy as np
+
+    rng = np.random.default_rng(seed)
+    jittered = []
+    for p in positions:
+        jittered.append(
+            Vec3(
+                float(p.x + rng.normal(0, sigma_nm)),
+                float(p.y + rng.normal(0, sigma_nm)),
+                float(p.z + rng.normal(0, sigma_nm)),
+            )
+        )
+    return jittered
+
+
 def _run_md(
     system: System,
     positions: list,
@@ -155,7 +172,7 @@ def _run_md(
             2.0 * unit.femtosecond,
         )
         simulation = Simulation(topology, system, integrator, Platform.getPlatformByName("CPU"))
-        simulation.context.setPositions(positions)
+        simulation.context.setPositions(_jitter_positions(positions, random_seed ^ 0x5EED))
 
         simulation.minimizeEnergy(maxIterations=500)
         log.append("energy minimization complete")
@@ -284,7 +301,9 @@ def run_thermal_stability_md(
     radius_nm: float,
     steps: int,
     temperature_k: float,
-    random_seed: int = 42,
+    *,
+    base_seed: int,
+    hot_seed: int,
 ) -> tuple[MDResult, MDResult, float]:
     """MD at T and T+10K — stability from structural response."""
 
@@ -294,7 +313,7 @@ def run_thermal_stability_md(
         radius_nm,
         steps,
         temperature_k,
-        random_seed=random_seed,
+        random_seed=base_seed,
     )
     md_hot = run_formation_md(
         work_dir / "perturbed",
@@ -302,7 +321,7 @@ def run_thermal_stability_md(
         radius_nm,
         steps,
         temperature_k + 10.0,
-        random_seed=random_seed + 1000,
+        random_seed=hot_seed,
     )
 
     if not md_base.success or not md_hot.success:
@@ -334,7 +353,7 @@ def run_corona_adsorption_md(
     np_pos = _initial_sphere_positions(n_np, np_radius_nm / 2)
     import random
 
-    random.seed(7)
+    random.seed(random_seed + 17_001)
     prot_pos = []
     for _ in range(n_prot):
         import math

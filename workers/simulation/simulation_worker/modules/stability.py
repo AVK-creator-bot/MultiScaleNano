@@ -6,6 +6,7 @@ from uuid import UUID
 
 from multiscale_core.analysis.methodology import STABILITY_METHODS, aggregate_replicates
 from multiscale_core.paths import ARTIFACT_DIR
+from multiscale_core.simulation.seeds import run_seed
 from multiscale_core.schema.artifacts import ArtifactFile, ProvenanceRecord, ScaleArtifact, StabilityResult
 from multiscale_core.schema.nanocarrier import NanocarrierDesign
 from multiscale_core.schema.simulation import SimulationMode
@@ -50,7 +51,8 @@ def run_stability(
             radius_nm=radius_nm,
             steps=steps,
             temperature_k=design.environment.temperature_k,
-            random_seed=200 + replicate,
+            base_seed=run_seed(run_id, "stability", replicate),
+            hot_seed=run_seed(run_id, "stability_hot", replicate),
         )
 
     rep_results = run_replicated_md(_one, n_rep)

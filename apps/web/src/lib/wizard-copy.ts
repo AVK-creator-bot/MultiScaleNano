@@ -27,7 +27,7 @@ export const WIZARD_STEPS = [
     label: "Review",
     title: "Choose what to simulate",
     subtitle:
-      "Each step runs real molecular dynamics. Standard mode takes about 30–45 minutes.",
+      "Each step runs real molecular dynamics with independent random seeds per run.",
   },
   {
     id: "run",

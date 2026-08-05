@@ -8,6 +8,7 @@ from multiscale_core.analysis.methodology import ENCAPSULATION_METHODS, aggregat
 from multiscale_core.drug.resolver import resolve_drug_structure
 from multiscale_core.lipids import drug_bead_count_from_loading, lipid_bead_counts
 from multiscale_core.paths import ARTIFACT_DIR
+from multiscale_core.simulation.seeds import run_seed
 from multiscale_core.schema.artifacts import ArtifactFile, ProvenanceRecord, ScaleArtifact
 from multiscale_core.schema.nanocarrier import NanocarrierDesign
 from multiscale_core.schema.simulation import SimulationMode
@@ -66,7 +67,7 @@ def run_encapsulation(
             steps=steps,
             temperature_k=design.environment.temperature_k,
             target_radius_nm=design.target_size_nm / 2,
-            random_seed=100 + replicate,
+            random_seed=run_seed(run_id, "encapsulation", replicate),
             lipid_bead_specs=lipid_specs,
         )
 

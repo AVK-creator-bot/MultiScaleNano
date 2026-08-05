@@ -87,11 +87,11 @@ export default function MethodologyPage() {
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4 text-sm">
               <p className="font-medium">Standard MD</p>
-              <p className="mt-1 text-[var(--muted)]">5,000 MD steps · 3 replicates · ~30–45 min</p>
+              <p className="mt-1 text-[var(--muted)]">5,000 MD steps · 3 replicates</p>
             </div>
             <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4 text-sm">
               <p className="font-medium">Production MD</p>
-              <p className="mt-1 text-[var(--muted)]">25,000 MD steps · 5 replicates · hours</p>
+              <p className="mt-1 text-[var(--muted)]">25,000 MD steps · 5 replicates</p>
             </div>
           </div>
         </section>

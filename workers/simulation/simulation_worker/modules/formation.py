@@ -9,6 +9,7 @@ from multiscale_core.bridges import apply_bridge
 from multiscale_core.drug.resolver import resolve_drug_structure
 from multiscale_core.lipids import lipid_bead_counts
 from multiscale_core.paths import ARTIFACT_DIR
+from multiscale_core.simulation.seeds import run_seed
 from multiscale_core.schema.artifacts import ArtifactFile, FormationResult, ProvenanceRecord, ScaleArtifact
 from multiscale_core.schema.nanocarrier import NanocarrierDesign
 from multiscale_core.schema.simulation import SimulationMode
@@ -60,7 +61,7 @@ def run_formation(
             radius_nm=design.target_size_nm / 2,
             steps=steps,
             temperature_k=design.environment.temperature_k,
-            random_seed=500 + replicate,
+            random_seed=run_seed(run_id, "formation", replicate),
             lipid_bead_specs=lipid_specs if len(lipid_specs) == n_beads else None,
         )
 

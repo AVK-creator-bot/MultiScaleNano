@@ -28,7 +28,6 @@ import {
   lipidTotalPct,
   LIPID_PRESET_LABELS,
   normalizeLipids,
-  planWorkflow,
   resolveDrug,
   startRun,
   exportRunUrl,
@@ -73,7 +72,6 @@ function SimulateWizard() {
   const [lipidPresetKey, setLipidPresetKey] = useState("mrna_sm102");
   const [modules, setModules] = useState<ModuleSpec[]>([]);
   const [enabledModules, setEnabledModules] = useState<string[]>([]);
-  const [plan, setPlan] = useState<{ estimated_display: string } | null>(null);
   const [simulationMode, setSimulationMode] = useState("standard_md");
   const [run, setRun] = useState<SimulationRun | null>(null);
   const [results, setResults] = useState<RunResults | null>(null);
@@ -162,12 +160,6 @@ function SimulateWizard() {
     }
     init();
   }, [validateStructure, searchParams]);
-
-  useEffect(() => {
-    if (enabledModules.length > 0) {
-      planWorkflow(enabledModules, simulationMode).then(setPlan);
-    }
-  }, [enabledModules, simulationMode]);
 
   const handleStartRun = useCallback(async () => {
     if (!design || !structureValidated) return;
@@ -696,8 +688,8 @@ function SimulateWizard() {
                   value={simulationMode}
                   onChange={(e) => setSimulationMode(e.target.value)}
                 >
-                  <option value="standard_md">Standard — recommended (~30–45 min)</option>
-                  <option value="production_md">Extended — higher accuracy (~hours)</option>
+                  <option value="standard_md">Standard — recommended</option>
+                  <option value="production_md">Extended — higher accuracy</option>
                 </select>
               </Field>
 
@@ -730,12 +722,6 @@ function SimulateWizard() {
                 </label>
               ))}
 
-              {plan && (
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] px-4 py-3 text-sm">
-                  <span className="text-[var(--muted)]">Estimated time: </span>
-                  <span className="font-medium">{plan.estimated_display}</span>
-                </div>
-              )}
             </div>
           )}
 
