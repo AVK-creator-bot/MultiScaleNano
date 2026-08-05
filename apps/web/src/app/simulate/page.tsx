@@ -740,7 +740,8 @@ function SimulateWizard() {
                     />
                   </div>
                   <p className="mt-2 text-xs text-[var(--muted)]">
-                    Simulations run on the server — keep this tab open to track progress.
+                    Simulations run on the server. Each module may take several minutes on
+                    shared CPU — overall progress updates when a module finishes.
                   </p>
                 </div>
               ) : run.status === "completed" ? (

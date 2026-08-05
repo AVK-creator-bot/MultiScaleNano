@@ -22,6 +22,8 @@ services:
         value: http://127.0.0.1:8000
       - key: MULTISCALE_CORS_ORIGINS
         value: "*"
+      - key: MULTISCALE_MD_PROFILE
+        value: web
     disk:
       name: multiscale-data
       mountPath: /data

@@ -39,6 +39,12 @@ def md_steps_for_mode(mode: str) -> int:
     return lj.md_steps_for_mode(mode)
 
 
+def replicate_count_for_mode(mode: str) -> int:
+    if use_martini3() and martini is not None:
+        return martini.replicate_count_for_martini(mode)
+    return lj.replicate_count_for_mode(mode)
+
+
 def run_formation_md(
     work_dir: Path,
     n_beads: int,
@@ -148,5 +154,4 @@ def run_replicated_md(run_fn, n_replicates: int = 3):
     return lj.run_replicated_md(run_fn, n_replicates)
 
 
-replicate_count_for_mode = lj.replicate_count_for_mode
 OPENMM_AVAILABLE = lj.OPENMM_AVAILABLE

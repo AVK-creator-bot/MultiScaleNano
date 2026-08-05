@@ -45,9 +45,32 @@ def martini_ff_dir() -> Path:
     return Path(os.environ.get("MARTINI_FF_DIR", "/app/martini_ff"))
 
 
+def _web_md_profile() -> bool:
+    """Use lighter Martini settings on shared cloud CPUs (Render default)."""
+    return os.environ.get("MULTISCALE_MD_PROFILE", "web").strip().lower() in {
+        "web",
+        "cloud",
+        "render",
+    }
+
+
 def md_steps_for_martini(mode: str) -> int:
-    """Martini systems are larger — use shorter production segments on shared CPU."""
+    """Martini systems are larger — keep web runs short enough to finish on Render."""
+    if _web_md_profile():
+        return {"screening": 0, "standard_md": 400, "production_md": 1200}.get(mode, 400)
     return {"screening": 0, "standard_md": 2500, "production_md": 12000}.get(mode, 2500)
+
+
+def replicate_count_for_martini(mode: str) -> int:
+    if _web_md_profile():
+        return {"screening": 0, "standard_md": 1, "production_md": 2}.get(mode, 1)
+    return {"screening": 0, "standard_md": 3, "production_md": 5}.get(mode, 3)
+
+
+def _martini_box_nm(design: NanocarrierDesign) -> float:
+    if _web_md_profile():
+        return max(5.0, min(7.0, design.target_size_nm / 2 + 2.0))
+    return max(8.0, min(14.0, design.target_size_nm / 2 + 4.0))
 
 
 def _ensure_force_field_files(work_dir: Path) -> None:
@@ -86,7 +109,7 @@ def build_martini_lnp_system(
     work_dir.mkdir(parents=True, exist_ok=True)
     _ensure_force_field_files(work_dir)
 
-    box_nm = max(8.0, min(14.0, design.target_size_nm / 2 + 4.0))
+    box_nm = _martini_box_nm(design)
     gro_path = work_dir / "system.gro"
     top_path = work_dir / "system.top"
 
@@ -201,16 +224,21 @@ def _run_martini_production(
         positions = _jitter_positions(vec_positions, random_seed ^ 0x4D415254)
         simulation.context.setPositions(positions)
         simulation.context.applyConstraints(1e-5)
-        simulation.minimizeEnergy(maxIterations=200)
-        log.append("Martini energy minimization complete")
+        max_minimize = 50 if _web_md_profile() else 200
+        simulation.minimizeEnergy(maxIterations=max_minimize)
+        log.append(f"Martini energy minimization complete ({max_minimize} iter max)")
         simulation.context.setVelocitiesToTemperature(temperature_k * unit.kelvin, random_seed)
 
-        sample_interval = max(50, steps // 50)
+        sample_interval = max(25, steps // 20)
         remaining = steps
+        stepped = 0
         while remaining > 0:
             chunk = min(sample_interval, remaining)
             simulation.step(chunk)
             remaining -= chunk
+            stepped += chunk
+            if stepped % max(sample_interval, 100) == 0 or remaining == 0:
+                logger.info("Martini MD run %s: %d/%d steps", work_dir.name, stepped, steps)
             state = simulation.context.getState(getEnergy=True)
             energy_samples.append(
                 state.getPotentialEnergy().value_in_unit(unit.kilojoule_per_mole)
