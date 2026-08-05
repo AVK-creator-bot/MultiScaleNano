@@ -21,6 +21,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgomp1 \
     nodejs \
     curl \
+    git \
     && (command -v node >/dev/null 2>&1 || ln -s /usr/bin/nodejs /usr/bin/node) \
     && rm -rf /var/lib/apt/lists/*
 
@@ -29,8 +30,9 @@ COPY workers/simulation /app/workers/simulation
 COPY apps/api /app/apps/api
 COPY scripts/download-martini-ff.sh /app/scripts/download-martini-ff.sh
 
-RUN pip install --no-cache-dir -U pip setuptools \
-    && pip install --no-cache-dir openmm \
+RUN pip install --no-cache-dir -U pip \
+    && pip install --no-cache-dir "setuptools>=68,<82" \
+    && pip install --no-cache-dir openmm simopt \
     && pip install --no-cache-dir "git+https://github.com/maccallumlab/martini_openmm.git" \
     && pip install --no-cache-dir "git+https://github.com/Tsjerk/Insane.git" \
     && pip install --no-cache-dir -e /app/packages/core \
