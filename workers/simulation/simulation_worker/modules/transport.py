@@ -14,6 +14,7 @@ from multiscale_core.schema.simulation import SimulationMode
 from multiscale_core.schema.workflow import ModuleName, SimulationScale
 
 from simulation_worker.analysis.artifact_meta import enrich_artifact_data
+from simulation_worker.analysis.require_md import require_field
 from simulation_worker.modules.errors import SimulationAnalysisError
 
 
@@ -35,7 +36,12 @@ def run_transport(
     porosity_entry = TISSUE_POROSITY.get(tissue, TISSUE_POROSITY["tumor"])
     porosity, porosity_ref = porosity_entry
 
-    d_eff = transport_params.get("effective_diffusion_coefficient_m2_s", 1e-12)
+    d_eff = require_field(
+        transport_params, "effective_diffusion_coefficient_m2_s", source="Formation→Transport bridge"
+    )
+    particle_radius_nm = require_field(
+        transport_params, "particle_radius_nm", source="Formation→Transport bridge"
+    )
     time_s = 3600
     penetration_m = (2 * d_eff * porosity * time_s) ** 0.5
     penetration_um = penetration_m * 1e6
@@ -53,9 +59,11 @@ def run_transport(
             "tissue_porosity": porosity,
             "porosity_reference": porosity_ref,
             "integration_time_s": time_s,
-            "particle_radius_nm": transport_params.get("particle_radius_nm"),
+            "particle_radius_nm": particle_radius_nm,
+            "analysis_basis": "stokes_einstein_from_formation_md_radius",
         },
         TRANSPORT_METHODS,
+        analysis_source="continuum_bridge_from_md",
     )
 
     artifact = ScaleArtifact(

@@ -15,6 +15,7 @@ from multiscale_core.schema.simulation import SimulationMode
 from multiscale_core.schema.workflow import ModuleName, SimulationScale
 
 from simulation_worker.analysis.artifact_meta import enrich_artifact_data
+from simulation_worker.analysis.require_md import require_field
 from simulation_worker.engine.openmm_md import (
     md_steps_for_mode,
     replicate_count_for_mode,
@@ -68,28 +69,24 @@ def run_cell_interaction(
     adh_u = aggregate_replicates(adhesions)
     adh_u.metric = "membrane_adhesion_energy_kT"
 
-    # Boltzmann-weighted uptake from MD adhesion (ΔG in kT units)
     uptake = min(0.95, max(0.05, 1.0 - math.exp(-adh_u.mean)))
 
-    stability = 0.5
-    if "stability" in upstream:
-        stability = upstream["stability"].data.get("stability_score", 0.5)
-    escape = min(0.9, max(0.1, stability * 0.85))
+    if "stability" not in upstream:
+        raise SimulationAnalysisError("Cell interaction requires stability MD artifact")
+    if "formation" not in upstream:
+        raise SimulationAnalysisError("Cell interaction requires formation MD artifact")
 
-    core_frac = 0.5
-    if "formation" in upstream:
-        core_frac = upstream["formation"].data.get("drug_core_fraction", 0.5)
+    stability = require_field(upstream["stability"].data, "stability_score", source="Stability")
+    core_frac = require_field(upstream["formation"].data, "drug_core_fraction", source="Formation")
 
-    release_frac = min(0.85, uptake * escape * core_frac)
-    has_ligand = len(design.ligands) > 0
-    pathway = "receptor_mediated" if has_ligand else "clathrin_mediated"
+    release_frac = min(0.95, uptake * core_frac)
 
     result = CellInteractionResult(
         membrane_adhesion_energy_kT=round(adh_u.mean, 2),
         uptake_probability=round(uptake, 3),
-        endosomal_escape_probability=round(escape, 3),
+        endosomal_escape_probability=round(stability, 3),
         intracellular_release_fraction=round(release_frac, 3),
-        primary_pathway=pathway,
+        primary_pathway="receptor_mediated" if design.ligands else "clathrin_mediated",
     )
 
     (work_dir / "inputs.json").write_text(
@@ -112,11 +109,14 @@ def run_cell_interaction(
             "simulation_mode": mode.value,
             "md_steps": steps,
             "n_replicates": n_rep,
-            "escape_source": "stability_md_upstream",
+            "endosomal_escape_source": "stability_md_score",
+            "intracellular_release_source": "uptake_md_x_formation_drug_core_fraction",
+            "primary_pathway_source": "design_ligand_metadata",
             "structure": structure,
         },
         CELL_METHODS,
         uncertainty={"membrane_adhesion_energy_kT": adh_u},
+        analysis_source="lj_membrane_approach_md",
     )
 
     artifact = ScaleArtifact(

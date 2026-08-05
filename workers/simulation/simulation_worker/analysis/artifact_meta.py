@@ -12,15 +12,14 @@ def enrich_artifact_data(
     methods: list[AnalysisMethod],
     uncertainty: dict[str, UncertaintyRecord] | None = None,
     *,
-    model_disclaimer: str = (
-        "Coarse-grained Lennard-Jones bead model (OpenMM). "
-        "Not atomistic Martini/GROMACS — suitable for relative comparison within this platform."
-    ),
+    analysis_source: str = "openmm_md_trajectory",
+    model_disclaimer: str | None = None,
 ) -> dict[str, Any]:
     data = dict(data)
-    data["analysis_source"] = "openmm_md_trajectory"
+    data["analysis_source"] = analysis_source
     data["methodology"] = [m.model_dump() for m in methods]
-    data["model_disclaimer"] = model_disclaimer
+    if model_disclaimer:
+        data["model_disclaimer"] = model_disclaimer
     if uncertainty:
         data["uncertainty"] = {k: v.model_dump() for k, v in uncertainty.items()}
     return data

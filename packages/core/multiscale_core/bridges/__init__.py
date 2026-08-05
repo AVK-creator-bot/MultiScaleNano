@@ -83,16 +83,15 @@ class FormationToTransport(ScaleBridge):
     def translate(self, artifact: ScaleArtifact) -> dict[str, Any]:
         form = FormationResult.model_validate(artifact.data)
         radius_m = form.hydrodynamic_radius_nm * 1e-9
-        # Stokes-Einstein at 310 K, water viscosity
-        viscosity = 0.692e-3  # Pa·s
+        viscosity = 0.692e-3  # Pa·s at ~310 K
         k_b = 1.380649e-23
-        temperature = 310.15
+        temperature = float(artifact.data.get("temperature_k", 310.15))
         d_stokes = k_b * temperature / (6 * 3.14159 * viscosity * radius_m)
         return {
             "particle_radius_nm": form.hydrodynamic_radius_nm,
             "effective_diffusion_coefficient_m2_s": d_stokes,
             "morphology": form.morphology,
-            "translation_method": "stokes_einstein_v1",
+            "translation_method": "stokes_einstein_from_formation_md",
         }
 
 

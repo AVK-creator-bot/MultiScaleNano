@@ -63,7 +63,7 @@ def md_steps_for_martini(mode: str) -> int:
 
 def replicate_count_for_martini(mode: str) -> int:
     if _web_md_profile():
-        return {"screening": 0, "standard_md": 1, "production_md": 2}.get(mode, 1)
+        return {"screening": 0, "standard_md": 2, "production_md": 3}.get(mode, 2)
     return {"screening": 0, "standard_md": 3, "production_md": 5}.get(mode, 3)
 
 
@@ -307,7 +307,11 @@ def run_martini_encapsulation_md(
     random_seed: int = 42,
     **_kwargs,
 ) -> MDResult:
-    """Martini lipid assembly — inner-core occupancy proxies drug encapsulation."""
-    return run_martini_formation_md(
-        work_dir, design, steps, temperature_k, random_seed=random_seed
+    """Not supported — Martini insane builds cannot represent explicit drug beads yet."""
+    _ = (work_dir, design, steps, temperature_k, random_seed)
+    return MDResult(
+        False,
+        None,
+        None,
+        log="Martini encapsulation requires explicit drug beads; use LJ encapsulation MD",
     )

@@ -1,14 +1,14 @@
-"""Route MD jobs to Martini 3 or legacy LJ backend."""
+"""Route MD jobs to Martini 3 or LJ backend — no silent fallbacks."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 from multiscale_core.schema.nanocarrier import NanocarrierDesign
-from multiscale_core.simulation.force_field import prefer_martini3, provenance_force_field
 
 from simulation_worker.engine import openmm_md as lj
 from simulation_worker.engine.openmm_md import MDResult
+from simulation_worker.modules.errors import SimulationAnalysisError
 
 MARTINI_AVAILABLE = False
 try:
@@ -20,10 +20,14 @@ except ImportError:
 
 
 def use_martini3() -> bool:
+    from multiscale_core.simulation.force_field import prefer_martini3
+
     return prefer_martini3() and MARTINI_AVAILABLE and martini is not None
 
 
 def active_force_field() -> str:
+    from multiscale_core.simulation.force_field import provenance_force_field
+
     return provenance_force_field(use_martini3())
 
 
@@ -45,6 +49,12 @@ def replicate_count_for_mode(mode: str) -> int:
     return lj.replicate_count_for_mode(mode)
 
 
+def _fail_if_unsuccessful(result: MDResult, context: str) -> MDResult:
+    if not result.success:
+        raise SimulationAnalysisError(f"{context} failed: {result.log}")
+    return result
+
+
 def run_formation_md(
     work_dir: Path,
     n_beads: int,
@@ -56,19 +66,23 @@ def run_formation_md(
     design: NanocarrierDesign | None = None,
 ) -> MDResult:
     if use_martini3() and design is not None and martini is not None:
-        try:
-            return martini.run_martini_formation_md(
+        return _fail_if_unsuccessful(
+            martini.run_martini_formation_md(
                 work_dir, design, steps, temperature_k, random_seed=random_seed
-            )
-        except Exception as exc:
-            import logging
-
-            logging.getLogger(__name__).warning(
-                "Martini formation MD failed, using LJ fallback: %s", exc
-            )
-    return lj.run_formation_md(
-        work_dir, n_beads, radius_nm, steps, temperature_k,
-        random_seed=random_seed, lipid_bead_specs=lipid_bead_specs,
+            ),
+            "Martini formation MD",
+        )
+    return _fail_if_unsuccessful(
+        lj.run_formation_md(
+            work_dir,
+            n_beads,
+            radius_nm,
+            steps,
+            temperature_k,
+            random_seed=random_seed,
+            lipid_bead_specs=lipid_bead_specs,
+        ),
+        "Formation MD",
     )
 
 
@@ -83,26 +97,20 @@ def run_encapsulation_md(
     lipid_bead_specs=None,
     design: NanocarrierDesign | None = None,
 ) -> MDResult:
-    if use_martini3() and design is not None and martini is not None:
-        try:
-            return martini.run_martini_encapsulation_md(
-                work_dir, design, steps, temperature_k, random_seed=random_seed
-            )
-        except Exception as exc:
-            import logging
-
-            logging.getLogger(__name__).warning(
-                "Martini encapsulation MD failed, using LJ fallback: %s", exc
-            )
-    return lj.run_encapsulation_md(
-        work_dir=work_dir,
-        lipid_bead_count=lipid_bead_count,
-        drug_bead_count=drug_bead_count,
-        steps=steps,
-        temperature_k=temperature_k,
-        target_radius_nm=target_radius_nm,
-        random_seed=random_seed,
-        lipid_bead_specs=lipid_bead_specs,
+    """Encapsulation always uses LJ MD with explicit drug beads (Martini lacks drug topology)."""
+    _ = design  # reserved for future Martini drug support
+    return _fail_if_unsuccessful(
+        lj.run_encapsulation_md(
+            work_dir=work_dir,
+            lipid_bead_count=lipid_bead_count,
+            drug_bead_count=drug_bead_count,
+            steps=steps,
+            temperature_k=temperature_k,
+            target_radius_nm=target_radius_nm,
+            random_seed=random_seed,
+            lipid_bead_specs=lipid_bead_specs,
+        ),
+        "Encapsulation MD",
     )
 
 
@@ -118,28 +126,37 @@ def run_thermal_stability_md(
     design: NanocarrierDesign | None = None,
 ):
     if use_martini3() and design is not None and martini is not None:
-        try:
-            md_base = martini.run_martini_formation_md(
+        md_base = _fail_if_unsuccessful(
+            martini.run_martini_formation_md(
                 work_dir / "base", design, steps, temperature_k, random_seed=base_seed
-            )
-            md_hot = martini.run_martini_formation_md(
-                work_dir / "perturbed", design, steps, temperature_k + 10.0, random_seed=hot_seed
-            )
-            if md_base.success and md_hot.success:
-                rg_base = md_base.radius_of_gyration_nm or 1.0
-                rg_hot = md_hot.radius_of_gyration_nm or rg_base
-                stability = max(0.0, min(1.0, 1.0 - abs(rg_hot - rg_base) / max(rg_base, 0.01)))
-                return md_base, md_hot, stability
-        except Exception as exc:
-            import logging
+            ),
+            "Martini stability (base) MD",
+        )
+        md_hot = _fail_if_unsuccessful(
+            martini.run_martini_formation_md(
+                work_dir / "perturbed",
+                design,
+                steps,
+                temperature_k + 10.0,
+                random_seed=hot_seed,
+            ),
+            "Martini stability (perturbed) MD",
+        )
+        rg_base = md_base.radius_of_gyration_nm
+        rg_hot = md_hot.radius_of_gyration_nm
+        if rg_base is None or rg_hot is None:
+            raise SimulationAnalysisError("Stability MD missing radius of gyration")
+        stability = max(0.0, min(1.0, 1.0 - abs(rg_hot - rg_base) / max(rg_base, 0.01)))
+        return md_base, md_hot, stability
 
-            logging.getLogger(__name__).warning(
-                "Martini stability MD failed, using LJ fallback: %s", exc
-            )
-    return lj.run_thermal_stability_md(
-        work_dir, n_beads, radius_nm, steps, temperature_k,
-        base_seed=base_seed, hot_seed=hot_seed,
+    md_base, md_hot, stability = lj.run_thermal_stability_md(
+        work_dir, n_beads, radius_nm, steps, temperature_k, base_seed=base_seed, hot_seed=hot_seed
     )
+    if not md_base.success or not md_hot.success:
+        raise SimulationAnalysisError(
+            f"Stability MD failed: {md_base.log or md_hot.log}"
+        )
+    return md_base, md_hot, stability
 
 
 def run_corona_adsorption_md(*args, **kwargs):

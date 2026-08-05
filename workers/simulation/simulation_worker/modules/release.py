@@ -13,6 +13,7 @@ from multiscale_core.schema.simulation import SimulationMode
 from multiscale_core.schema.workflow import ModuleName, SimulationScale
 
 from simulation_worker.analysis.artifact_meta import enrich_artifact_data
+from simulation_worker.analysis.require_md import require_field
 from simulation_worker.modules.errors import SimulationAnalysisError
 
 
@@ -29,24 +30,23 @@ def run_release(
     if "formation" not in upstream or "stability" not in upstream:
         raise SimulationAnalysisError("Release requires formation and stability MD artifacts.")
 
-    rh_nm = upstream["formation"].data.get("hydrodynamic_radius_nm", design.target_size_nm)
+    rh_nm = require_field(upstream["formation"].data, "hydrodynamic_radius_nm", source="Formation")
     rh_m = rh_nm * 1e-9
 
     transport_params = apply_bridge("formation_to_transport", upstream["formation"])
-    d_stokes = transport_params.get("effective_diffusion_coefficient_m2_s", 1e-12)
+    d_stokes = require_field(
+        transport_params, "effective_diffusion_coefficient_m2_s", source="Formation→Transport bridge"
+    )
 
-    energy_std = upstream["stability"].data.get("energy_std_kj_mol", 0.0)
-    pe = abs(upstream["formation"].data.get("potential_energy_kj_mol", 100.0))
-    energy_cv = energy_std / max(pe, 1.0)
-    stability_score = upstream["stability"].data.get("stability_score", 0.5)
+    energy_std = require_field(upstream["stability"].data, "energy_std_kj_mol", source="Stability")
+    pe = require_field(upstream["formation"].data, "potential_energy_kj_mol", source="Formation")
+    energy_cv = energy_std / max(abs(pe), 1.0)
+    stability_score = require_field(upstream["stability"].data, "stability_score", source="Stability")
 
-    # Internal effective diffusivity scales with energy fluctuation (FD relation proxy)
+    # Continuum extrapolation from MD-derived D, R_H, and thermal stability — not direct release MD.
     d_eff = d_stokes * max(1e-6, min(1.0, energy_cv**2))
     half_life_s = (rh_m**2) / (2 * d_eff * max(stability_score, 0.05))
     half_life_hours = max(0.1, half_life_s / 3600.0)
-
-    ionizable = sum(l.ratio for l in design.lipids if l.charge != 0)
-    trigger = "pH-responsive" if ionizable > 0.3 else "diffusion-controlled"
 
     profile = []
     for t in range(0, 49, 3):
@@ -56,7 +56,7 @@ def run_release(
     result = ReleaseResult(
         half_life_hours=round(half_life_hours, 1),
         release_profile=profile,
-        trigger_mechanism=trigger,
+        trigger_mechanism="continuum_extrapolation",
     )
 
     data = enrich_artifact_data(
@@ -69,8 +69,10 @@ def run_release(
             "energy_std_kj_mol": energy_std,
             "energy_cv": round(energy_cv, 4),
             "stability_score": stability_score,
+            "analysis_basis": "continuum_extrapolation_from_md_formation_and_stability",
         },
         RELEASE_METHODS,
+        analysis_source="continuum_bridge_from_md",
     )
 
     artifact = ScaleArtifact(

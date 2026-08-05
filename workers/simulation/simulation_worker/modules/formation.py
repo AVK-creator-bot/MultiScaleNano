@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from uuid import UUID
 
+import numpy as np
+
 from multiscale_core.analysis.methodology import FORMATION_METHODS, aggregate_replicates
 from multiscale_core.bridges import apply_bridge
 from multiscale_core.drug.resolver import resolve_drug_structure
@@ -38,9 +40,8 @@ def run_formation(
     work_dir.mkdir(parents=True, exist_ok=True)
 
     resolved = resolve_drug_structure(design.drug, work_dir / "structure")
-    bridge_params = {}
     if "encapsulation" in upstream:
-        bridge_params = apply_bridge("encapsulation_to_formation", upstream["encapsulation"])
+        apply_bridge("encapsulation_to_formation", upstream["encapsulation"])
 
     steps = md_steps_for_mode(mode.value)
     n_rep = replicate_count_for_mode(mode.value)
@@ -73,30 +74,28 @@ def run_formation(
         raise SimulationAnalysisError(f"Formation MD failed: {failed.log}")
 
     md = md_results[0]
-    radii = [r.radius_of_gyration_nm * 2 for r in md_results]
+    radii = [r.radius_of_gyration_nm * 2 for r in md_results if r.radius_of_gyration_nm is not None]
+    if len(radii) < 2:
+        raise SimulationAnalysisError(
+            "Formation polydispersity requires at least 2 successful MD replicates"
+        )
     rg_u = aggregate_replicates(radii)
     rg_u.metric = "hydrodynamic_radius_nm"
 
-    polydispersities = []
-    for r in md_results:
-        pd = (r.energy_std_kj_mol or 0) / max(abs(r.potential_energy_kj_mol or 1), 1)
-        polydispersities.append(min(0.3, max(0.02, pd)))
-    pd_u = aggregate_replicates(polydispersities)
+    pd_mean = float(np.mean(radii))
+    polydispersity = float(np.std(radii, ddof=1) / pd_mean) if pd_mean > 0 else 0.0
+    pd_u = aggregate_replicates([polydispersity] * len(radii))
     pd_u.metric = "polydispersity"
 
+    if md.drug_core_fraction is None:
+        raise SimulationAnalysisError("Formation MD missing drug_core_fraction")
     drug_core = md.drug_core_fraction
-    if drug_core is None and "encapsulation" in upstream:
-        drug_core = upstream["encapsulation"].data.get("core_fraction", 0.0)
-
-    enc_eff = bridge_params.get("initial_drug_loading")
-    if enc_eff is None and "encapsulation" in upstream:
-        enc_eff = upstream["encapsulation"].data.get("encapsulation_efficiency_estimate", 0.0)
 
     form = FormationResult(
         hydrodynamic_radius_nm=round(rg_u.mean, 1),
-        morphology="core-shell" if (drug_core or 0) > 0.3 else "compact-sphere",
-        polydispersity=round(pd_u.mean, 3),
-        drug_core_fraction=round(drug_core or enc_eff or 0.0, 3),
+        morphology="core-shell" if drug_core > 0.3 else "compact-sphere",
+        polydispersity=round(polydispersity, 3),
+        drug_core_fraction=round(drug_core, 3),
     )
 
     structure = export_md_structure(
@@ -115,10 +114,12 @@ def run_formation(
             "potential_energy_kj_mol": md.potential_energy_kj_mol,
             "radius_of_gyration_nm": md.radius_of_gyration_nm,
             "compactness": md.compactness,
+            "temperature_k": design.environment.temperature_k,
             "structure": structure,
         },
         FORMATION_METHODS,
         uncertainty={"hydrodynamic_radius_nm": rg_u, "polydispersity": pd_u},
+        analysis_source=f"{force_field_from_engine(md.engine)}_md_trajectory",
     )
 
     artifact = ScaleArtifact(

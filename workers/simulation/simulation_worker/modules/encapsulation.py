@@ -135,6 +135,7 @@ def run_encapsulation(
         },
         ENCAPSULATION_METHODS,
         uncertainty={"potential_energy_kj_mol": pe_u, "encapsulation_efficiency_estimate": eff_u},
+        analysis_source="lj_encapsulation_md_with_drug_beads",
     )
 
     artifact = ScaleArtifact(
@@ -147,9 +148,9 @@ def run_encapsulation(
             "encapsulation_efficiency_estimate": eff_u.model_dump(),
         },
         provenance=ProvenanceRecord(
-            force_field=force_field_from_engine(md.engine),
+            force_field="lj_coarse_grained",
             engine_version=md.engine,
-            translation_method="md_trajectory_analysis",
+            translation_method="md_trajectory_analysis_with_explicit_drug_beads",
         ),
         files=(
             [ArtifactFile(path="structure.pdb", file_type="pdb", description="Final MD bead coordinates")]

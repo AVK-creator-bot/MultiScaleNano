@@ -384,7 +384,7 @@ def run_corona_adsorption_md(
         for prot in pos[n_np:]:
             if float(np.linalg.norm(prot - np_com)) < cutoff_nm:
                 adsorbed += 1
-        ligand_frac = max(0.05, 1.0 - adsorbed / max(n_prot, 1) * 0.6)
+        ligand_frac = max(0.0, 1.0 - adsorbed / max(n_prot, 1))
 
     return md, adsorbed, ligand_frac
 

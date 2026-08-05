@@ -39,12 +39,17 @@ def encapsulation_from_md(
     pe_kcal = (md.potential_energy_kj_mol or 0) / 4.184
     retention_fe = pe_kcal / max(total_beads, 1)
 
-    core_frac = md.drug_core_fraction if md.drug_core_fraction is not None else 0.0
-    compactness = md.compactness or 0.0
+    if md.drug_core_fraction is None:
+        raise ValueError("Encapsulation analysis requires drug_core_fraction from MD")
+    if md.compactness is None:
+        raise ValueError("Encapsulation analysis requires compactness from MD")
+
+    core_frac = md.drug_core_fraction
+    compactness = md.compactness
     drug_fraction = drug_bead_count / max(total_beads, 1)
 
-    efficiency = min(0.99, max(0.01, core_frac * compactness * (0.5 + 0.5 * drug_fraction)))
-    bead_coupling = min(0.99, max(0.01, core_frac))
+    efficiency = core_frac * compactness * (0.5 + 0.5 * drug_fraction)
+    bead_coupling = core_frac
 
     md_analysis = MDAnalysisResult(
         potential_energy_kj_mol=md.potential_energy_kj_mol or 0,

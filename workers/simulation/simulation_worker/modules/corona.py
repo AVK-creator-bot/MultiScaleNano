@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from uuid import UUID
 
+import numpy as np
+
 from multiscale_core.analysis.constants import FLUID_PROTEINS, SERUM_PROTEIN_MW
 from multiscale_core.analysis.methodology import CORONA_METHODS, aggregate_replicates
 from multiscale_core.paths import ARTIFACT_DIR
@@ -76,15 +78,28 @@ def run_corona(
     lig_u = aggregate_replicates(ligand_fracs)
     lig_u.metric = "ligand_accessible_fraction"
 
-    corona_thickness = ads_u.mean * 0.35  # nm per adsorbed coarse-grained protein bead
+    if not md_ref or not md_ref.final_positions_nm:
+        raise SimulationAnalysisError("Corona MD missing final bead positions")
+
+    pos = np.array(md_ref.final_positions_nm)
+    if len(pos) < np_beads + 1:
+        raise SimulationAnalysisError("Corona MD structure too small for analysis")
+
+    np_com = pos[:np_beads].mean(axis=0)
+    np_surface = float(np.max(np.linalg.norm(pos[:np_beads] - np_com, axis=1)))
+    adsorbed_dists = [
+        float(np.linalg.norm(p - np_com))
+        for p in pos[np_beads:]
+        if float(np.linalg.norm(p - np_com)) < np_surface + 1.2
+    ]
+    corona_thickness = max(0.0, max(adsorbed_dists) - np_surface) if adsorbed_dists else 0.0
     effective_radius = base_radius + corona_thickness
-    dominant = proteins[: max(1, int(ads_u.mean))] if proteins else ["none"]
 
     result = CoronaResult(
         effective_radius_nm=round(effective_radius, 1),
         ligand_accessible_fraction=round(lig_u.mean, 3),
-        dominant_proteins=dominant,
-        surface_charge_delta_mv=round(-ads_u.mean * 2.5, 1),
+        dominant_proteins=[],
+        surface_charge_delta_mv=0.0,
     )
 
     (work_dir / "inputs.json").write_text(
@@ -108,11 +123,15 @@ def run_corona(
             "md_steps": steps,
             "n_replicates": n_rep,
             "adsorbed_protein_count": round(ads_u.mean, 1),
+            "corona_thickness_nm": round(corona_thickness, 3),
+            "dominant_proteins_note": "Not resolved from coarse-grained protein beads",
+            "surface_charge_delta_note": "Requires explicit charge groups in corona MD",
             "np_radius_nm": base_radius,
             "structure": structure,
         },
         CORONA_METHODS,
         uncertainty={"adsorbed_protein_count": ads_u, "ligand_accessible_fraction": lig_u},
+        analysis_source="lj_corona_adsorption_md",
     )
 
     artifact = ScaleArtifact(

@@ -59,35 +59,34 @@ def run_stability(
 
     rep_results = run_replicated_md(_one, n_rep)
     stability_scores = []
-    leakage_rates = []
+    rg_expansion_rates = []
     base_md = None
     hot_md = None
     for md_base, md_hot, stability in rep_results:
         if not md_base.success or not md_hot.success:
             raise SimulationAnalysisError(f"Stability MD failed: {md_base.log or md_hot.log}")
+        if md_base.radius_of_gyration_nm is None or md_hot.radius_of_gyration_nm is None:
+            raise SimulationAnalysisError("Stability MD missing radius of gyration")
         stability_scores.append(stability)
         base_md = md_base
         hot_md = md_hot
-        energy_cv = (md_base.energy_std_kj_mol or 0) / max(abs(md_base.potential_energy_kj_mol or 1), 1)
-        leakage_rates.append(min(0.2, max(0.001, energy_cv * 0.05)))
+        rg_expansion = abs(md_hot.radius_of_gyration_nm - md_base.radius_of_gyration_nm)
+        rg_expansion_rates.append(rg_expansion / max(md_base.radius_of_gyration_nm, 0.01))
 
     stab_u = aggregate_replicates(stability_scores)
     stab_u.metric = "stability_score"
-    leak_u = aggregate_replicates(leakage_rates)
-    leak_u.metric = "drug_leakage_rate_per_hour"
+    expansion_u = aggregate_replicates(rg_expansion_rates)
+    expansion_u.metric = "rg_expansion_fraction"
 
     stability = stab_u.mean
-    aggregation = max(0.05, 1.0 - stability)
-    leakage = leak_u.mean
-
-    ionizable = sum(l.ratio for l in design.lipids if l.charge != 0)
-    ph_low, ph_high = (5.5, 7.4) if ionizable > 0.2 else (6.5, 8.0)
+    aggregation = max(0.0, 1.0 - stability)
+    leakage = expansion_u.mean
 
     result = StabilityResult(
         stability_score=round(stability, 3),
         aggregation_propensity=round(aggregation, 3),
         drug_leakage_rate_per_hour=round(leakage, 4),
-        stable_ph_range=(ph_low, ph_high),
+        stable_ph_range=(design.environment.ph, design.environment.ph),
     )
 
     structure = {}
@@ -106,12 +105,17 @@ def run_stability(
             "md_steps": steps,
             "n_replicates": n_rep,
             "thermal_perturbation_k": 10.0,
+            "rg_expansion_fraction": round(expansion_u.mean, 4),
+            "stable_ph_range_note": "Design pH only — pH-sweep MD not run",
+            "drug_leakage_metric": "rg_expansion_fraction_from_thermal_md",
             "base_rg_nm": base_md.radius_of_gyration_nm if base_md else None,
+            "perturbed_rg_nm": hot_md.radius_of_gyration_nm if hot_md else None,
             "energy_std_kj_mol": base_md.energy_std_kj_mol if base_md else None,
             "structure": structure,
         },
         STABILITY_METHODS,
-        uncertainty={"stability_score": stab_u, "drug_leakage_rate_per_hour": leak_u},
+        uncertainty={"stability_score": stab_u, "rg_expansion_fraction": expansion_u},
+        analysis_source=f"{force_field_from_engine(base_md.engine if base_md else None)}_thermal_md",
     )
 
     artifact = ScaleArtifact(
@@ -119,7 +123,7 @@ def run_stability(
         module=ModuleName.STABILITY,
         scale=SimulationScale.COARSE_GRAINED,
         data=data,
-        uncertainty={"stability_score": stab_u.model_dump(), "drug_leakage_rate_per_hour": leak_u.model_dump()},
+        uncertainty={"stability_score": stab_u.model_dump(), "rg_expansion_fraction": expansion_u.model_dump()},
         provenance=ProvenanceRecord(
             upstream_artifacts=[upstream["formation"].id] if "formation" in upstream else [],
             force_field=force_field_from_engine(base_md.engine if base_md else None),

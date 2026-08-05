@@ -95,7 +95,7 @@ def insane_lipid_flags(lipids: list[LipidComponent]) -> list[str]:
 def lipid_params(name: str) -> LipidParams:
     if name in LIPID_LIBRARY:
         return LIPID_LIBRARY[name]
-    return LipidParams(name, 700.0, 0, 1.8, 100.0, "unknown")
+    raise ValueError(f"Unknown lipid: {name}. Supported lipids: {', '.join(sorted(LIPID_LIBRARY))}")
 
 
 def validate_lipid_composition(lipids: list[LipidComponent]) -> tuple[bool, str]:
