@@ -304,6 +304,11 @@ export function exportRunUrl(runId: string, format: "json" | "csv" = "json"): st
   return `${base}/api/runs/${runId}/export?format=${format}`;
 }
 
+export function runStructureUrl(runId: string, moduleName: string): string {
+  const base = API_BASE || "";
+  return `${base}/api/runs/${runId}/structure/${moduleName}`;
+}
+
 export async function fetchDesign(designId: string): Promise<NanocarrierDesign> {
   const res = await apiFetch(`/api/designs/${designId}`);
   if (!res.ok) throw new Error(await parseApiError(res));

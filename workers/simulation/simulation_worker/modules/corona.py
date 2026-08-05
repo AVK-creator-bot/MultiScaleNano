@@ -8,7 +8,7 @@ from uuid import UUID
 from multiscale_core.analysis.constants import FLUID_PROTEINS, SERUM_PROTEIN_MW
 from multiscale_core.analysis.methodology import CORONA_METHODS, aggregate_replicates
 from multiscale_core.paths import ARTIFACT_DIR
-from multiscale_core.schema.artifacts import CoronaResult, ProvenanceRecord, ScaleArtifact
+from multiscale_core.schema.artifacts import ArtifactFile, CoronaResult, ProvenanceRecord, ScaleArtifact
 from multiscale_core.schema.nanocarrier import NanocarrierDesign
 from multiscale_core.schema.simulation import SimulationMode
 from multiscale_core.schema.workflow import ModuleName, SimulationScale
@@ -21,6 +21,7 @@ from simulation_worker.engine.openmm_md import (
     run_replicated_md,
 )
 from simulation_worker.modules.errors import SimulationAnalysisError
+from simulation_worker.structure.export import export_md_structure
 
 
 def run_corona(
@@ -90,6 +91,15 @@ def run_corona(
         encoding="utf-8",
     )
 
+    structure = {}
+    if md_ref:
+        structure = export_md_structure(
+            work_dir,
+            md_ref,
+            ["np"] * np_beads + ["protein"] * protein_beads,
+            title=f"Protein corona — {design.name}",
+        )
+
     data = enrich_artifact_data(
         {
             **result.model_dump(),
@@ -98,6 +108,7 @@ def run_corona(
             "n_replicates": n_rep,
             "adsorbed_protein_count": round(ads_u.mean, 1),
             "np_radius_nm": base_radius,
+            "structure": structure,
         },
         CORONA_METHODS,
         uncertainty={"adsorbed_protein_count": ads_u, "ligand_accessible_fraction": lig_u},
@@ -114,6 +125,11 @@ def run_corona(
             force_field="lj_coarse_grained",
             engine_version=md_ref.engine if md_ref else "openmm",
             translation_method="competitive_adsorption_md",
+        ),
+        files=(
+            [ArtifactFile(path="structure.pdb", file_type="pdb", description="Final MD bead coordinates")]
+            if structure.get("available")
+            else []
         ),
     )
     (work_dir / "artifact.json").write_text(artifact.model_dump_json(indent=2), encoding="utf-8")

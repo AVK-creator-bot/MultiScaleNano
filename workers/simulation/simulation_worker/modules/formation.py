@@ -9,7 +9,7 @@ from multiscale_core.bridges import apply_bridge
 from multiscale_core.drug.resolver import resolve_drug_structure
 from multiscale_core.lipids import lipid_bead_counts
 from multiscale_core.paths import ARTIFACT_DIR
-from multiscale_core.schema.artifacts import FormationResult, ProvenanceRecord, ScaleArtifact
+from multiscale_core.schema.artifacts import ArtifactFile, FormationResult, ProvenanceRecord, ScaleArtifact
 from multiscale_core.schema.nanocarrier import NanocarrierDesign
 from multiscale_core.schema.simulation import SimulationMode
 from multiscale_core.schema.workflow import ModuleName, SimulationScale
@@ -22,6 +22,7 @@ from simulation_worker.engine.openmm_md import (
     run_replicated_md,
 )
 from simulation_worker.modules.errors import SimulationAnalysisError
+from simulation_worker.structure.export import export_md_structure
 
 
 def run_formation(
@@ -95,6 +96,13 @@ def run_formation(
         drug_core_fraction=round(drug_core or enc_eff or 0.0, 3),
     )
 
+    structure = export_md_structure(
+        work_dir,
+        md,
+        ["lipid"] * len(md.final_positions_nm or []),
+        title=f"Formation — {design.name}",
+    )
+
     data = enrich_artifact_data(
         {
             **form.model_dump(),
@@ -104,6 +112,7 @@ def run_formation(
             "potential_energy_kj_mol": md.potential_energy_kj_mol,
             "radius_of_gyration_nm": md.radius_of_gyration_nm,
             "compactness": md.compactness,
+            "structure": structure,
         },
         FORMATION_METHODS,
         uncertainty={"hydrodynamic_radius_nm": rg_u, "polydispersity": pd_u},
@@ -120,6 +129,11 @@ def run_formation(
             translation_method="encapsulation_to_formation",
             force_field="lj_coarse_grained",
             engine_version=md.engine,
+        ),
+        files=(
+            [ArtifactFile(path="structure.pdb", file_type="pdb", description="Final MD bead coordinates")]
+            if structure.get("available")
+            else []
         ),
     )
 

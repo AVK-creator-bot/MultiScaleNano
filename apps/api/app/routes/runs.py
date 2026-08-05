@@ -8,7 +8,7 @@ from enum import Enum
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, HTTPException, Query
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
 from multiscale_core.paths import ARTIFACT_DIR
@@ -147,6 +147,27 @@ async def get_run_results(run_id: UUID):
     """Return aggregated module artifacts for a completed run."""
     run, results = _load_run_results(run_id)
     return {"run_id": str(run_id), "status": run.status, "modules": results}
+
+
+@router.get("/{run_id}/structure/{module_name}")
+async def get_run_structure(run_id: UUID, module_name: str):
+    """Return final MD bead coordinates as PDB for 3D visualization."""
+    run = run_store.get(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    pdb_path = ARTIFACT_DIR / str(run_id) / module_name / "structure.pdb"
+    if not pdb_path.is_file():
+        raise HTTPException(
+            status_code=404,
+            detail="Structure not available for this module (run a new simulation after the viewer update)",
+        )
+
+    return FileResponse(
+        pdb_path,
+        media_type="chemical/x-pdb",
+        filename=f"run-{run_id}-{module_name}.pdb",
+    )
 
 
 @router.get("/{run_id}/export")

@@ -6,7 +6,7 @@ from uuid import UUID
 
 from multiscale_core.analysis.methodology import STABILITY_METHODS, aggregate_replicates
 from multiscale_core.paths import ARTIFACT_DIR
-from multiscale_core.schema.artifacts import ProvenanceRecord, ScaleArtifact, StabilityResult
+from multiscale_core.schema.artifacts import ArtifactFile, ProvenanceRecord, ScaleArtifact, StabilityResult
 from multiscale_core.schema.nanocarrier import NanocarrierDesign
 from multiscale_core.schema.simulation import SimulationMode
 from multiscale_core.schema.workflow import ModuleName, SimulationScale
@@ -19,6 +19,7 @@ from simulation_worker.engine.openmm_md import (
     run_thermal_stability_md,
 )
 from simulation_worker.modules.errors import SimulationAnalysisError
+from simulation_worker.structure.export import export_md_structure
 
 
 def run_stability(
@@ -56,11 +57,13 @@ def run_stability(
     stability_scores = []
     leakage_rates = []
     base_md = None
+    hot_md = None
     for md_base, md_hot, stability in rep_results:
         if not md_base.success or not md_hot.success:
             raise SimulationAnalysisError(f"Stability MD failed: {md_base.log or md_hot.log}")
         stability_scores.append(stability)
         base_md = md_base
+        hot_md = md_hot
         energy_cv = (md_base.energy_std_kj_mol or 0) / max(abs(md_base.potential_energy_kj_mol or 1), 1)
         leakage_rates.append(min(0.2, max(0.001, energy_cv * 0.05)))
 
@@ -83,6 +86,15 @@ def run_stability(
         stable_ph_range=(ph_low, ph_high),
     )
 
+    structure = {}
+    if hot_md:
+        structure = export_md_structure(
+            work_dir,
+            hot_md,
+            ["lipid"] * len(hot_md.final_positions_nm or []),
+            title=f"Thermal stress (+10 K) — {design.name}",
+        )
+
     data = enrich_artifact_data(
         {
             **result.model_dump(),
@@ -92,6 +104,7 @@ def run_stability(
             "thermal_perturbation_k": 10.0,
             "base_rg_nm": base_md.radius_of_gyration_nm if base_md else None,
             "energy_std_kj_mol": base_md.energy_std_kj_mol if base_md else None,
+            "structure": structure,
         },
         STABILITY_METHODS,
         uncertainty={"stability_score": stab_u, "drug_leakage_rate_per_hour": leak_u},
@@ -108,6 +121,11 @@ def run_stability(
             force_field="lj_coarse_grained",
             engine_version=base_md.engine if base_md else "openmm",
             translation_method="thermal_perturbation_md",
+        ),
+        files=(
+            [ArtifactFile(path="structure.pdb", file_type="pdb", description="Final MD bead coordinates after +10 K")]
+            if structure.get("available")
+            else []
         ),
     )
 

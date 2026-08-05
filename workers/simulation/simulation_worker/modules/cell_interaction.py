@@ -8,7 +8,7 @@ from uuid import UUID
 
 from multiscale_core.analysis.methodology import CELL_METHODS, aggregate_replicates
 from multiscale_core.paths import ARTIFACT_DIR
-from multiscale_core.schema.artifacts import CellInteractionResult, ProvenanceRecord, ScaleArtifact
+from multiscale_core.schema.artifacts import ArtifactFile, CellInteractionResult, ProvenanceRecord, ScaleArtifact
 from multiscale_core.schema.nanocarrier import NanocarrierDesign
 from multiscale_core.schema.simulation import SimulationMode
 from multiscale_core.schema.workflow import ModuleName, SimulationScale
@@ -21,6 +21,7 @@ from simulation_worker.engine.openmm_md import (
     run_replicated_md,
 )
 from simulation_worker.modules.errors import SimulationAnalysisError
+from simulation_worker.structure.export import export_md_structure
 
 
 def run_cell_interaction(
@@ -95,6 +96,15 @@ def run_cell_interaction(
         encoding="utf-8",
     )
 
+    structure = {}
+    if md_ref:
+        structure = export_md_structure(
+            work_dir,
+            md_ref,
+            ["np"] * n_beads,
+            title=f"Membrane approach — {design.name}",
+        )
+
     data = enrich_artifact_data(
         {
             **result.model_dump(),
@@ -102,6 +112,7 @@ def run_cell_interaction(
             "md_steps": steps,
             "n_replicates": n_rep,
             "escape_source": "stability_md_upstream",
+            "structure": structure,
         },
         CELL_METHODS,
         uncertainty={"membrane_adhesion_energy_kT": adh_u},
@@ -118,6 +129,11 @@ def run_cell_interaction(
             force_field="lj_coarse_grained",
             engine_version=md_ref.engine if md_ref else "openmm",
             translation_method="membrane_wall_approach_md",
+        ),
+        files=(
+            [ArtifactFile(path="structure.pdb", file_type="pdb", description="Final MD bead coordinates")]
+            if structure.get("available")
+            else []
         ),
     )
     (work_dir / "artifact.json").write_text(artifact.model_dump_json(indent=2), encoding="utf-8")

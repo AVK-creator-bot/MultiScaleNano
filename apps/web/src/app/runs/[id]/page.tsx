@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Download, Loader2 } from "lucide-react";
 import { ResultsPanel } from "@/components/ResultsPanel";
+import { StructurePanel } from "@/components/StructurePanel";
 import {
   exportRunUrl,
   getRun,
@@ -127,10 +128,13 @@ export default function RunDetailPage() {
         </div>
 
         {results?.modules && Object.keys(results.modules).length > 0 ? (
-          <div>
-            <h2 className="mb-3 font-semibold">Metrics & methodology</h2>
-            <ResultsPanel modules={results.modules} />
-          </div>
+          <>
+            <StructurePanel runId={runId} modules={results.modules} />
+            <div>
+              <h2 className="mb-3 font-semibold">Metrics & methodology</h2>
+              <ResultsPanel modules={results.modules} />
+            </div>
+          </>
         ) : run.status === "running" || run.status === "queued" ? (
           <p className="text-sm text-[var(--muted)]">Simulation in progress…</p>
         ) : null}

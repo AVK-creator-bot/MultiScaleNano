@@ -120,7 +120,8 @@ export default function MethodologyPage() {
         <section className="rounded-xl border border-[var(--border)] bg-[var(--surface-elevated)] p-4 text-sm text-[var(--muted)]">
           <p className="font-medium text-white">Limitations</p>
           <p className="mt-2">
-            Results are computational predictions from simplified coarse-grained models. They
+            Results are computational predictions from simplified coarse-grained models. Completed
+            runs include an interactive 3D viewer of final MD bead coordinates (PDB export). They
             should supplement — not replace — experimental validation. Screening mode is disabled;
             all reported metrics require MD simulation.
           </p>

@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { HelpTip, StepHeader } from "@/components/HelpTip";
 import { ResultsPanel } from "@/components/ResultsPanel";
+import { StructurePanel } from "@/components/StructurePanel";
 import {
   createDesign,
   checkHealth,
@@ -822,6 +823,7 @@ function SimulateWizard() {
                     </div>
                   </div>
                   <KeyResultsSummary modules={results.modules} />
+                  {run?.id && <StructurePanel runId={run.id} modules={results.modules} />}
                   <ResultsPanel modules={results.modules} />
                 </div>
               )}
